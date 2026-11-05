@@ -1,0 +1,267 @@
+// AYE Platform - Prisma Schema
+// Zero-PII University Problem Tracking Platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────────────
+
+enum VerificationMethod {
+  CLASSMATE_OTP
+  CAMPUS_GPS
+  DEV_SEED
+}
+
+enum AccountStatus {
+  ACTIVE
+  RESTRICTED
+  BANNED_TROLL
+}
+
+enum UserRole {
+  STUDENT
+  CAMPUS_MOD
+  DEV_SUPER_ADMIN
+}
+
+enum ExperienceCategory {
+  HOSTEL
+  MESS_FOOD
+  LABS_WIFI
+  FEES_ADMIN
+  FACULTY
+  INFRASTRUCTURE
+  SAFETY
+}
+
+enum ExperienceSeverity {
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+enum ExperienceStatus {
+  UNRESOLVED
+  TRENDING
+  FIX_PROPOSED
+  RESOLVED
+  HIDDEN_JUNK
+}
+
+enum InteractionType {
+  AYE_VOTE
+  JUNK_FLAG
+  CROWD_PROOF
+}
+
+enum PollStatus {
+  ACTIVE
+  APPROVED_RESOLVED
+  REJECTED_STILL_BROKEN
+}
+
+enum RoomType {
+  GLOBAL
+  BRANCH
+  ISSUE_ROOM
+  DM
+}
+
+// ─────────────────────────────────────────────────────────────
+// TABLE 1: colleges
+// ─────────────────────────────────────────────────────────────
+
+model College {
+  college_id              String   @id @default(uuid())
+  name                    String
+  slug                    String   @unique
+  city                    String
+  gps_lat                 Float
+  gps_lng                 Float
+  geofence_radius_meters  Int      @default(500)
+  resolution_rate         Float    @default(0)
+  reality_grade           String   @default("N/A")
+  total_experiences       Int      @default(0)
+  total_resolved          Int      @default(0)
+  created_at              DateTime @default(now())
+
+  users        User[]
+  campus_otps  CampusOtp[]
+  experiences  Experience[]
+  chat_rooms   ChatRoom[]
+}
+
+// ─────────────────────────────────────────────────────────────
+// TABLE 2: users (Zero-PII)
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  user_id                  String        @id @default(uuid())
+  college_id               String
+  ghost_handle             String        @unique
+  password_hash            String
+  recovery_key_hash        String
+  course_branch            String
+  study_year               Int
+  verification_method      VerificationMethod
+  invited_by_user_id       String?
+  trust_score              Int           @default(50)
+  strike_count             Int           @default(0)
+  account_status           AccountStatus @default(ACTIVE)
+  hardware_fingerprint_hash String       @unique
+  role                     UserRole      @default(STUDENT)
+  created_at               DateTime      @default(now())
+
+  college              College            @relation(fields: [college_id], references: [college_id])
+  invited_by           User?              @relation("InviteChain", fields: [invited_by_user_id], references: [user_id])
+  invited_users        User[]             @relation("InviteChain")
+  generated_otps       CampusOtp[]        @relation("GeneratedOTPs")
+  used_otp             CampusOtp?         @relation("UsedOTP")
+  experiences          Experience[]
+  post_interactions    PostInteraction[]
+  resolution_polls     ResolutionPoll[]
+  chat_messages        ChatMessage[]
+
+  @@index([college_id])
+  @@index([hardware_fingerprint_hash])
+}
+
+// ─────────────────────────────────────────────────────────────
+// TABLE 3: campus_otps
+// ─────────────────────────────────────────────────────────────
+
+model CampusOtp {
+  otp_id               String   @id @default(uuid())
+  college_id           String
+  generated_by_user_id String
+  otp_code             String
+  is_used              Boolean  @default(false)
+  used_by_user_id      String?  @unique
+  expires_at           DateTime
+  created_at           DateTime @default(now())
+
+  college        College @relation(fields: [college_id], references: [college_id])
+  generated_by   User    @relation("GeneratedOTPs", fields: [generated_by_user_id], references: [user_id])
+  used_by        User?   @relation("UsedOTP", fields: [used_by_user_id], references: [user_id])
+}
+
+// ─────────────────────────────────────────────────────────────
+// TABLE 4: experiences
+// ─────────────────────────────────────────────────────────────
+
+model Experience {
+  post_id             String             @id @default(uuid())
+  college_id          String
+  author_id           String
+  hide_handle         Boolean            @default(false)
+  title               String
+  what_is_wrong       String
+  exact_location      String
+  impact_scope        String
+  category            ExperienceCategory
+  severity            ExperienceSeverity @default(NORMAL)
+  media_urls          Json               @default("[]")
+  aye_count           Int                @default(1)
+  junk_flag_count     Int                @default(0)
+  status              ExperienceStatus   @default(UNRESOLVED)
+  linked_chat_room_id String?
+  created_at          DateTime           @default(now())
+  resolved_at         DateTime?
+
+  college          College          @relation(fields: [college_id], references: [college_id])
+  author           User             @relation(fields: [author_id], references: [user_id])
+  linked_chat_room ChatRoom?        @relation("LinkedRoom", fields: [linked_chat_room_id], references: [room_id])
+  post_interactions PostInteraction[]
+  resolution_polls ResolutionPoll[]
+
+  @@index([college_id])
+  @@index([status])
+  @@index([created_at])
+}
+
+// ─────────────────────────────────────────────────────────────
+// TABLE 5: post_interactions
+// ─────────────────────────────────────────────────────────────
+
+model PostInteraction {
+  interaction_id  String          @id @default(uuid())
+  post_id         String
+  user_id         String
+  type            InteractionType
+  proof_media_url String?
+  comment_text    String?
+  created_at      DateTime        @default(now())
+
+  post Experience @relation(fields: [post_id], references: [post_id])
+  user User       @relation(fields: [user_id], references: [user_id])
+
+  @@unique([post_id, user_id, type], name: "unique_vote_per_user")
+}
+
+// ─────────────────────────────────────────────────────────────
+// TABLE 6: resolution_polls
+// ─────────────────────────────────────────────────────────────
+
+model ResolutionPoll {
+  poll_id               String     @id @default(uuid())
+  post_id               String
+  proposed_by_user_id   String
+  fix_proof_media_url   String
+  fix_note              String?
+  yes_fixed_votes       Int        @default(1)
+  no_broken_votes       Int        @default(0)
+  poll_status           PollStatus @default(ACTIVE)
+  created_at            DateTime   @default(now())
+  expires_at            DateTime
+
+  post        Experience @relation(fields: [post_id], references: [post_id])
+  proposed_by User       @relation(fields: [proposed_by_user_id], references: [user_id])
+}
+
+// ─────────────────────────────────────────────────────────────
+// TABLE 7: chat_rooms & chat_messages
+// ─────────────────────────────────────────────────────────────
+
+model ChatRoom {
+  room_id        String   @id @default(uuid())
+  college_id     String
+  room_type      RoomType
+  name           String
+  linked_post_id String?
+  created_at     DateTime @default(now())
+
+  college       College      @relation(fields: [college_id], references: [college_id])
+  chat_messages ChatMessage[]
+  linked_experiences Experience[] @relation("LinkedRoom")
+}
+
+model ChatMessage {
+  msg_id        String   @id @default(uuid())
+  room_id       String
+  sender_id     String
+  send_as_ghost Boolean  @default(false)
+  content       String
+  media_url     String?
+  created_at    DateTime @default(now())
+
+  room   ChatRoom @relation(fields: [room_id], references: [room_id])
+  sender User     @relation(fields: [sender_id], references: [user_id])
+}
+
+// ─────────────────────────────────────────────────────────────
+// TABLE 8: banned_fingerprints
+// ─────────────────────────────────────────────────────────────
+
+model BannedFingerprint {
+  fingerprint_hash String   @id
+  reason           String
+  banned_at        DateTime @default(now())
+}

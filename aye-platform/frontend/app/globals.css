@@ -1,0 +1,161 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── ROOT DESIGN TOKENS ──────────────────────────────────── */
+:root {
+  --ink:     #0A0A0A;
+  --acid:    #D4F542;
+  --paper:   #F0EFE6;
+  --card:    #FFFFFF;
+  --danger:  #E11D48;
+  --amber:   #F59E0B;
+  --emerald: #10B981;
+  --border:  3px solid var(--ink);
+}
+
+/* ── BASE RESET ──────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Space Grotesk', sans-serif;
+  scroll-behavior: smooth;
+  /* Prevent double-tap zoom on Android without disabling user zoom */
+  touch-action: manipulation;
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh; /* dynamic viewport on Android Chrome */
+  background: var(--paper);
+  /* NOTE: background-attachment: fixed is broken on Android Chrome.
+     Using a pseudo-element with position:fixed instead — same visual, no jank. */
+}
+
+/* Grid background via pseudo-element — works on Android Chrome */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(10,10,10,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(10,10,10,0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── ANDROID INPUT ZOOM FIX ─────────────────────────────── */
+/* Android Chrome zooms in when focus is on input < 16px.
+   Force all inputs/selects to min 16px so zoom never triggers. */
+input, select, textarea {
+  font-size: max(16px, 1em);
+}
+
+/* ── BRUTALIST COMPONENT LAYER ───────────────────────────── */
+@layer components {
+
+  /* Cards */
+  .brute-card {
+    @apply bg-card border-3 border-ink shadow-brutal;
+  }
+
+  /* Primary button — acid yellow fill */
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-4 py-3
+           bg-acid text-ink font-mono font-bold text-sm uppercase tracking-wider
+           border-3 border-ink shadow-brutal
+           transition-all duration-75 cursor-pointer select-none
+           min-h-[48px]; /* Android 48dp minimum touch target */
+    touch-action: manipulation;
+  }
+  .btn-primary:hover  { @apply shadow-pressed translate-x-[3px] translate-y-[3px]; }
+  .btn-primary:active { @apply shadow-none translate-x-[4px] translate-y-[4px]; }
+
+  /* Secondary button — white fill */
+  .btn-secondary {
+    @apply inline-flex items-center gap-2 px-4 py-3
+           bg-white text-ink font-mono font-bold text-sm uppercase tracking-wider
+           border-3 border-ink shadow-brutal
+           transition-all duration-75 cursor-pointer select-none
+           min-h-[48px];
+    touch-action: manipulation;
+  }
+  .btn-secondary:hover  { @apply shadow-pressed translate-x-[3px] translate-y-[3px]; }
+  .btn-secondary:active { @apply shadow-none translate-x-[4px] translate-y-[4px]; }
+
+  /* Danger button — crimson fill */
+  .btn-danger {
+    @apply inline-flex items-center gap-2 px-4 py-3
+           bg-danger text-white font-mono font-bold text-sm uppercase tracking-wider
+           border-3 border-ink shadow-brutal
+           transition-all duration-75 cursor-pointer select-none
+           min-h-[48px];
+    touch-action: manipulation;
+  }
+  .btn-danger:hover  { @apply shadow-pressed translate-x-[3px] translate-y-[3px]; }
+  .btn-danger:active { @apply shadow-none translate-x-[4px] translate-y-[4px]; }
+
+  /* Ghost/inverse — black fill */
+  .btn-inverse {
+    @apply inline-flex items-center gap-2 px-4 py-3
+           bg-ink text-acid font-mono font-bold text-sm uppercase tracking-wider
+           border-3 border-ink shadow-brutal-acid
+           transition-all duration-75 cursor-pointer select-none
+           min-h-[48px];
+    touch-action: manipulation;
+  }
+  .btn-inverse:hover  { @apply translate-x-[3px] translate-y-[3px]; box-shadow: 1px 1px 0 #D4F542; }
+  .btn-inverse:active { box-shadow: none; @apply translate-x-[4px] translate-y-[4px]; }
+
+  /* Brutalist input — 16px min to prevent Android zoom */
+  .brute-input {
+    @apply w-full px-4 py-3 bg-white text-ink font-mono
+           border-3 border-ink outline-none
+           placeholder:text-ink/40
+           focus:shadow-brutal transition-shadow duration-75;
+    font-size: max(16px, 0.875rem);
+    min-height: 48px;
+    touch-action: manipulation;
+  }
+
+  /* Status badge */
+  .badge {
+    @apply inline-block px-2 py-0.5 text-xs font-mono font-bold uppercase tracking-widest
+           border-2 border-ink;
+  }
+  .badge-red     { @apply bg-danger text-white; }
+  .badge-amber   { @apply bg-amber text-ink; }
+  .badge-green   { @apply bg-emerald text-white; }
+  .badge-acid    { @apply bg-acid text-ink; }
+  .badge-outline { @apply bg-transparent text-ink; }
+
+  /* Section label (top-left stamp) */
+  .section-label {
+    @apply inline-block px-3 py-1 text-xs font-mono font-bold uppercase tracking-widest
+           bg-ink text-acid border-2 border-ink;
+  }
+
+  /* Touch-friendly small chip buttons (filter chips, toggles) */
+  .chip-btn {
+    @apply font-mono text-xs font-bold uppercase tracking-wider px-3 py-2
+           border-2 border-ink transition-all duration-75 min-h-[44px]
+           flex items-center justify-center;
+    touch-action: manipulation;
+  }
+}
+
+/* ── SMOOTH SCROLL ON ANDROID ────────────────────────────── */
+.scroll-touch {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+/* ── SCROLLBAR ───────────────────────────────────────────── */
+::-webkit-scrollbar       { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--paper); }
+::-webkit-scrollbar-thumb { background: var(--ink); }
