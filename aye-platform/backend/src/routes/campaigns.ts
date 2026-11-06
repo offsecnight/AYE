@@ -35,14 +35,21 @@ const prisma    = new PrismaClient();
 const UPLOAD_DIR = path.resolve(process.env.UPLOAD_DIR ?? "./uploads");
 
 // ── Schemas ───────────────────────────────────────────────────
+// datetime-local inputs send "YYYY-MM-DDTHH:mm" (no seconds/timezone).
+// We accept any ISO-ish date string and coerce it ourselves.
+const isoDateString = z.string().refine(
+  (s) => !isNaN(Date.parse(s)),
+  { message: "Invalid date string" }
+);
+
 const CreateCampaignSchema = z.object({
   college_id:    z.string().uuid(),
   title:         z.string().min(5).max(140),
   description:   z.string().min(20),
   reward_points: z.number().int().min(1).max(1000).default(10),
   status:        z.enum(["DRAFT", "ACTIVE", "PAUSED", "CLOSED"]).default("DRAFT"),
-  starts_at:     z.string().datetime(),
-  ends_at:       z.string().datetime(),
+  starts_at:     isoDateString,
+  ends_at:       isoDateString,
 });
 
 const UpdateCampaignSchema = z.object({
@@ -50,8 +57,8 @@ const UpdateCampaignSchema = z.object({
   description:   z.string().min(20).optional(),
   reward_points: z.number().int().min(1).max(1000).optional(),
   status:        z.enum(["DRAFT", "ACTIVE", "PAUSED", "CLOSED"]).optional(),
-  starts_at:     z.string().datetime().optional(),
-  ends_at:       z.string().datetime().optional(),
+  starts_at:     isoDateString.optional(),
+  ends_at:       isoDateString.optional(),
 });
 
 const SubmitSchema = z.object({
@@ -80,6 +87,15 @@ const ReviewSchema = z.object({
 // ═════════════════════════════════════════════════════════════
 
 adminCampaignRouter.use(requireAuth, requireRole("DEV_SUPER_ADMIN"));
+
+// Request logger — logs every incoming admin campaign request
+adminCampaignRouter.use((req, _res, next) => {
+  console.log(`[Campaign Admin] ${req.method} ${req.path}`, {
+    body:   req.body,
+    user:   req.user?.ghost_handle ?? "(no user yet)",
+  });
+  next();
+});
 
 // ── GET /api/v1/dev-admin/campaigns ──────────────────────────
 /**
@@ -115,7 +131,14 @@ adminCampaignRouter.get("/", async (_req: Request, res: Response): Promise<void>
 adminCampaignRouter.post("/", async (req: Request, res: Response): Promise<void> => {
   const parsed = CreateCampaignSchema.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ message: "Validation error", errors: parsed.error.flatten() });
+    const flat = parsed.error.flatten();
+    // Build a readable message from field errors
+    const fieldMsgs = Object.entries(flat.fieldErrors)
+      .map(([f, msgs]) => `${f}: ${(msgs ?? []).join(", ")}`)
+      .join(" | ");
+    const message = fieldMsgs || "Validation error";
+    console.error("[Campaign Admin] Validation failed:", flat);
+    res.status(400).json({ message, errors: flat });
     return;
   }
 
