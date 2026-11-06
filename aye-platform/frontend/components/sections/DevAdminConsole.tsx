@@ -1,22 +1,23 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter }    from "next/navigation";
-import { Plus, Ban, Zap, AlertTriangle, AlertCircle, Trash2, MessageSquare } from "lucide-react";
+import { Plus, Ban, Zap, AlertTriangle, AlertCircle, Trash2, MessageSquare, Megaphone, CheckCircle, XCircle, Clock, Upload, FileText } from "lucide-react";
 import { BruteCard }    from "@/components/ui/BruteCard";
 import { GradeDisplay } from "@/components/ui/GradeDisplay";
 import { useAuthStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
-type AdminTab = "stats" | "colleges" | "rooms" | "seed-otp" | "junk" | "bans";
+type AdminTab = "stats" | "colleges" | "rooms" | "seed-otp" | "junk" | "bans" | "campaigns";
 
 const TABS: { id: AdminTab; label: string }[] = [
-  { id: "stats",    label: "STATS" },
-  { id: "colleges", label: "COLLEGES" },
+  { id: "stats",     label: "STATS" },
+  { id: "colleges",  label: "COLLEGES" },
   { id: "rooms",    label: "ROOMS" },
   { id: "seed-otp", label: "SEED OTP" },
   { id: "junk",     label: "JUNK QUEUE" },
   { id: "bans",     label: "HW BANS" },
+  { id: "campaigns",label: "CAMPAIGNS" },
 ];
 
 // All client-side calls go through same-origin proxy → backend
@@ -881,6 +882,577 @@ export function DevAdminConsole() {
           </BruteCard>
         </div>
       )}
+
+      {/* ── CAMPAIGNS ──────────────────────────────────────── */}
+      {tab === "campaigns" && user && (
+        <CampaignPanel token={user.token} colleges={colleges} />
+      )}
     </div>
+  );
+}
+
+// ── Campaign Manager Panel ───────────────────────────────────
+
+interface Campaign {
+  campaign_id:   string;
+  college_id:    string;
+  title:         string;
+  description:   string;
+  reward_points: number;
+  status:        "DRAFT" | "ACTIVE" | "PAUSED" | "CLOSED";
+  starts_at:     string;
+  ends_at:       string;
+  created_at:    string;
+  college:       { name: string; slug: string };
+  _count:        { submissions: number };
+}
+
+interface CampaignSubmission {
+  submission_id:   string;
+  campaign_id:     string;
+  submitted_by:    string;
+  title:           string;
+  description:     string;
+  encrypted_files: { storedName: string; originalName: string; mimeType: string; size: number }[];
+  status:          "PENDING" | "APPROVED" | "REJECTED";
+  reward_granted:  boolean;
+  admin_note:      string | null;
+  submitted_at:    string;
+  reviewed_at:     string | null;
+  submitter:       { ghost_handle: string; trust_score: number };
+}
+
+type CampaignSubTab = "list" | "create" | "submissions";
+
+const STATUS_COLORS: Record<string, string> = {
+  DRAFT:   "bg-ink/20 text-ink",
+  ACTIVE:  "bg-emerald/20 text-emerald",
+  PAUSED:  "bg-amber/20 text-amber",
+  CLOSED:  "bg-danger/20 text-danger",
+  PENDING:  "bg-amber/20 text-amber",
+  APPROVED: "bg-emerald/20 text-emerald",
+  REJECTED: "bg-danger/20 text-danger",
+};
+
+function fmtDate(d: string) {
+  return new Date(d).toLocaleDateString("en-IN", {
+    day: "2-digit", month: "short", year: "numeric",
+  });
+}
+
+function fmtBytes(b: number) {
+  if (b < 1024)       return `${b} B`;
+  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+  return `${(b / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function CampaignPanel({ token, colleges }: { token: string; colleges: College[] }) {
+  const [subTab,      setSubTab]    = useState<CampaignSubTab>("list");
+  const [campaigns,   setCampaigns] = useState<Campaign[]>([]);
+  const [loading,     setLoading]   = useState(true);
+  const [error,       setError]     = useState<string | null>(null);
+  const [saving,      setSaving]    = useState(false);
+
+  // Selected campaign for viewing submissions
+  const [viewCampaign, setViewCampaign]   = useState<Campaign | null>(null);
+  const [submissions,  setSubmissions]    = useState<CampaignSubmission[]>([]);
+  const [subLoading,   setSubLoading]     = useState(false);
+  const [reviewing,    setReviewing]      = useState<string | null>(null);
+
+  // Create form state
+  const [form, setForm] = useState({
+    college_id:    "",
+    title:         "",
+    description:   "",
+    reward_points: "10",
+    status:        "DRAFT",
+    starts_at:     "",
+    ends_at:       "",
+  });
+
+  // Edit form (inline status change)
+  const [editing, setEditing] = useState<string | null>(null);
+  const [editStatus, setEditStatus] = useState<string>("DRAFT");
+
+  const loadCampaigns = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await apiCall("/dev-admin/campaigns", "GET", undefined, token);
+      setCampaigns((r as { campaigns: Campaign[] }).campaigns);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to load campaigns");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadCampaigns(); }, [token]);
+
+  const loadSubmissions = async (campaign: Campaign) => {
+    setViewCampaign(campaign);
+    setSubTab("submissions");
+    setSubLoading(true);
+    try {
+      const r = await apiCall(`/dev-admin/campaigns/${campaign.campaign_id}/submissions`, "GET", undefined, token);
+      setSubmissions((r as { submissions: CampaignSubmission[] }).submissions);
+    } catch {
+      setSubmissions([]);
+    } finally {
+      setSubLoading(false);
+    }
+  };
+
+  async function createCampaign(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      await apiCall("/dev-admin/campaigns", "POST", {
+        ...form,
+        reward_points: parseInt(form.reward_points),
+      }, token);
+      setForm({ college_id: "", title: "", description: "", reward_points: "10", status: "DRAFT", starts_at: "", ends_at: "" });
+      setSubTab("list");
+      await loadCampaigns();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to create campaign");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function updateStatus(campaignId: string, status: string) {
+    setError(null);
+    try {
+      await apiCall(`/dev-admin/campaigns/${campaignId}`, "PATCH", { status }, token);
+      setEditing(null);
+      await loadCampaigns();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to update campaign");
+    }
+  }
+
+  async function deleteCampaign(campaign: Campaign) {
+    if (!confirm(`Delete campaign "${campaign.title}"? This removes all ${campaign._count.submissions} submissions and their files.`)) return;
+    setError(null);
+    try {
+      await apiCall(`/dev-admin/campaigns/${campaign.campaign_id}`, "DELETE", undefined, token);
+      await loadCampaigns();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to delete campaign");
+    }
+  }
+
+  async function reviewSubmission(subId: string, status: "APPROVED" | "REJECTED", note: string) {
+    setReviewing(subId);
+    try {
+      await apiCall(`/dev-admin/campaigns/submissions/${subId}`, "PATCH", { status, admin_note: note || undefined }, token);
+      // Refresh submissions
+      if (viewCampaign) await loadSubmissions(viewCampaign);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Review failed");
+    } finally {
+      setReviewing(null);
+    }
+  }
+
+  return (
+    <div>
+      {/* Header + sub-tabs */}
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+        <div className="flex items-center gap-2">
+          <Megaphone size={16} className="text-acid" />
+          <h2 className="font-mono font-bold text-sm uppercase">CAMPAIGN MANAGER</h2>
+        </div>
+        <div className="flex border-2 border-ink overflow-hidden">
+          {(["list", "create"] as CampaignSubTab[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => { setSubTab(t); setViewCampaign(null); }}
+              className={cn(
+                "px-3 py-1.5 font-mono text-xs uppercase font-bold border-r-2 border-ink last:border-r-0",
+                subTab === t ? "bg-ink text-acid" : "bg-paper text-ink hover:bg-acid/20"
+              )}
+            >
+              {t === "list" ? "ALL CAMPAIGNS" : "+ NEW CAMPAIGN"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {error && (
+        <div className="brute-card p-3 mb-4 flex items-center gap-2 border-t-4 border-danger">
+          <AlertCircle size={14} className="text-danger shrink-0" />
+          <p className="font-mono text-xs text-danger uppercase">{error}</p>
+        </div>
+      )}
+
+      {/* ── CAMPAIGN LIST ─────────────────────────────────── */}
+      {subTab === "list" && (
+        <div>
+          {loading ? (
+            <div className="flex flex-col gap-3">
+              {[1, 2, 3].map((i) => <div key={i} className="brute-card h-20 animate-pulse" />)}
+            </div>
+          ) : campaigns.length === 0 ? (
+            <BruteCard className="p-8 text-center" accent="none">
+              <Megaphone size={32} className="mx-auto mb-3 text-ink/20" />
+              <p className="font-mono text-sm text-ink/40 uppercase tracking-widest">
+                NO CAMPAIGNS YET — CREATE ONE TO GET STARTED
+              </p>
+            </BruteCard>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full border-3 border-ink shadow-brutal text-sm">
+                <thead className="bg-ink text-acid">
+                  <tr>
+                    {["TITLE", "COLLEGE", "REWARD", "STATUS", "SUBMISSIONS", "DATES", "ACTIONS"].map((h) => (
+                      <th key={h} className="px-4 py-3 font-mono text-[10px] uppercase tracking-widest text-left border-r-2 border-acid/20 last:border-r-0">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {campaigns.map((c) => (
+                    <tr key={c.campaign_id} className="border-t-2 border-ink hover:bg-acid/5">
+                      <td className="px-4 py-3">
+                        <p className="font-mono text-xs font-bold max-w-[160px] truncate">{c.title}</p>
+                        <p className="font-mono text-[10px] text-ink/40 max-w-[160px] truncate">{c.description}</p>
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs text-ink/60">{c.college.name}</td>
+                      <td className="px-4 py-3">
+                        <span className="font-mono text-xs font-bold text-acid bg-ink px-2 py-0.5">
+                          +{c.reward_points} PTS
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {editing === c.campaign_id ? (
+                          <div className="flex items-center gap-1">
+                            <select
+                              className="brute-input text-[10px] py-1 px-1 font-mono"
+                              value={editStatus}
+                              onChange={(e) => setEditStatus(e.target.value)}
+                            >
+                              {["DRAFT", "ACTIVE", "PAUSED", "CLOSED"].map((s) => (
+                                <option key={s} value={s}>{s}</option>
+                              ))}
+                            </select>
+                            <button
+                              onClick={() => updateStatus(c.campaign_id, editStatus)}
+                              className="font-mono text-[10px] px-1.5 py-1 bg-acid text-ink border-2 border-ink font-bold"
+                            >✓</button>
+                            <button
+                              onClick={() => setEditing(null)}
+                              className="font-mono text-[10px] px-1.5 py-1 border-2 border-ink"
+                            >✕</button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => { setEditing(c.campaign_id); setEditStatus(c.status); }}
+                            className={cn("font-mono text-[10px] px-2 py-1 border-2 border-ink/30 uppercase font-bold", STATUS_COLORS[c.status])}
+                          >
+                            {c.status}
+                          </button>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => loadSubmissions(c)}
+                          className="font-mono text-xs font-bold text-acid underline underline-offset-2"
+                        >
+                          {c._count.submissions} VIEW
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 font-mono text-[10px] text-ink/50">
+                        <div>{fmtDate(c.starts_at)}</div>
+                        <div>→ {fmtDate(c.ends_at)}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => deleteCampaign(c)}
+                          className="flex items-center gap-1 px-2 py-1.5 border-2 border-ink font-mono text-[10px] uppercase hover:bg-danger hover:text-white transition-colors min-h-[36px]"
+                        >
+                          <Trash2 size={10} /> DEL
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── CREATE CAMPAIGN ───────────────────────────────── */}
+      {subTab === "create" && (
+        <BruteCard className="p-6" accent="acid">
+          <h3 className="font-mono font-bold text-sm uppercase mb-5 flex items-center gap-2">
+            <Plus size={14} /> NEW CAMPAIGN
+          </h3>
+          <form onSubmit={createCampaign} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* College */}
+            <div className="sm:col-span-2">
+              <label className="font-mono text-[10px] uppercase tracking-widest text-ink/50 block mb-1">COLLEGE *</label>
+              <select
+                className="brute-input font-mono text-xs w-full"
+                value={form.college_id}
+                onChange={(e) => setForm({ ...form, college_id: e.target.value })}
+                required
+              >
+                <option value="">— Select college —</option>
+                {colleges.map((c) => (
+                  <option key={c.college_id} value={c.college_id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Title */}
+            <div className="sm:col-span-2">
+              <label className="font-mono text-[10px] uppercase tracking-widest text-ink/50 block mb-1">CAMPAIGN TITLE *</label>
+              <input
+                className="brute-input font-mono text-xs w-full"
+                placeholder="e.g. Report Broken Lab Equipment — Oct 2026"
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                required minLength={5} maxLength={140}
+              />
+            </div>
+
+            {/* Description */}
+            <div className="sm:col-span-2">
+              <label className="font-mono text-[10px] uppercase tracking-widest text-ink/50 block mb-1">DESCRIPTION *</label>
+              <textarea
+                className="brute-input font-mono text-xs w-full min-h-[80px] resize-y"
+                placeholder="What problem areas should students document? What evidence is needed?"
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                required minLength={20}
+              />
+            </div>
+
+            {/* Reward points */}
+            <div>
+              <label className="font-mono text-[10px] uppercase tracking-widest text-ink/50 block mb-1">REWARD POINTS *</label>
+              <input
+                type="number" min={1} max={1000}
+                className="brute-input font-mono text-xs w-full"
+                value={form.reward_points}
+                onChange={(e) => setForm({ ...form, reward_points: e.target.value })}
+                required
+              />
+              <p className="font-mono text-[10px] text-ink/40 mt-1">Awarded per approved submission</p>
+            </div>
+
+            {/* Status */}
+            <div>
+              <label className="font-mono text-[10px] uppercase tracking-widest text-ink/50 block mb-1">INITIAL STATUS</label>
+              <select
+                className="brute-input font-mono text-xs w-full"
+                value={form.status}
+                onChange={(e) => setForm({ ...form, status: e.target.value })}
+              >
+                <option value="DRAFT">DRAFT (not visible to students)</option>
+                <option value="ACTIVE">ACTIVE (open for submissions)</option>
+              </select>
+            </div>
+
+            {/* Dates */}
+            <div>
+              <label className="font-mono text-[10px] uppercase tracking-widest text-ink/50 block mb-1">STARTS AT *</label>
+              <input
+                type="datetime-local"
+                className="brute-input font-mono text-xs w-full"
+                value={form.starts_at}
+                onChange={(e) => setForm({ ...form, starts_at: e.target.value })}
+                required
+              />
+            </div>
+            <div>
+              <label className="font-mono text-[10px] uppercase tracking-widest text-ink/50 block mb-1">ENDS AT *</label>
+              <input
+                type="datetime-local"
+                className="brute-input font-mono text-xs w-full"
+                value={form.ends_at}
+                onChange={(e) => setForm({ ...form, ends_at: e.target.value })}
+                required
+              />
+            </div>
+
+            {/* Submit */}
+            <div className="sm:col-span-2 flex gap-3 pt-2">
+              <button type="submit" disabled={saving} className="btn-primary">
+                <Megaphone size={14} />
+                {saving ? "CREATING..." : "CREATE CAMPAIGN"}
+              </button>
+              <button type="button" onClick={() => setSubTab("list")} className="btn-secondary">
+                CANCEL
+              </button>
+            </div>
+          </form>
+        </BruteCard>
+      )}
+
+      {/* ── SUBMISSIONS VIEWER ─────────────────────────────── */}
+      {subTab === "submissions" && viewCampaign && (
+        <div>
+          <div className="flex items-center gap-3 mb-4">
+            <button
+              onClick={() => { setSubTab("list"); setViewCampaign(null); }}
+              className="font-mono text-xs btn-secondary py-1.5 px-3"
+            >
+              ← BACK
+            </button>
+            <div>
+              <p className="font-mono text-[10px] text-ink/40 uppercase">CAMPAIGN</p>
+              <p className="font-mono font-bold text-sm uppercase">{viewCampaign.title}</p>
+            </div>
+            <span className={cn("ml-auto font-mono text-[10px] px-2 py-1 border-2 border-ink/30 uppercase font-bold", STATUS_COLORS[viewCampaign.status])}>
+              {viewCampaign.status}
+            </span>
+          </div>
+
+          {subLoading ? (
+            <div className="flex flex-col gap-3">
+              {[1, 2].map((i) => <div key={i} className="brute-card h-24 animate-pulse" />)}
+            </div>
+          ) : submissions.length === 0 ? (
+            <BruteCard className="p-8 text-center" accent="none">
+              <p className="font-mono text-sm text-ink/40 uppercase tracking-widest">
+                NO SUBMISSIONS YET
+              </p>
+            </BruteCard>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {submissions.map((sub) => (
+                <SubmissionCard
+                  key={sub.submission_id}
+                  sub={sub}
+                  token={token}
+                  reviewing={reviewing}
+                  onReview={reviewSubmission}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Submission Card ───────────────────────────────────────────
+
+function SubmissionCard({
+  sub,
+  token,
+  reviewing,
+  onReview,
+}: {
+  sub:       CampaignSubmission;
+  token:     string;
+  reviewing: string | null;
+  onReview:  (id: string, status: "APPROVED" | "REJECTED", note: string) => void;
+}) {
+  const [noteText, setNoteText] = useState("");
+  const [expanded, setExpanded] = useState(false);
+
+  const accentMap: Record<string, "acid" | "danger" | "none"> = {
+    PENDING:  "none",
+    APPROVED: "acid",
+    REJECTED: "danger",
+  };
+
+  return (
+    <BruteCard className="p-4" accent={accentMap[sub.status] ?? "none"}>
+      {/* Row 1 — meta */}
+      <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
+        <div>
+          <p className="font-mono text-sm font-bold uppercase">{sub.title}</p>
+          <p className="font-mono text-[10px] text-ink/50 uppercase mt-0.5">
+            @{sub.submitter.ghost_handle} · Trust {sub.submitter.trust_score} · {fmtDate(sub.submitted_at)}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={cn("font-mono text-[10px] px-2 py-1 border-2 border-ink/30 uppercase font-bold", STATUS_COLORS[sub.status])}>
+            {sub.status === "PENDING" ? <Clock size={10} className="inline mr-1" /> : sub.status === "APPROVED" ? <CheckCircle size={10} className="inline mr-1" /> : <XCircle size={10} className="inline mr-1" />}
+            {sub.status}
+          </span>
+          {sub.reward_granted && (
+            <span className="font-mono text-[10px] px-2 py-0.5 bg-acid text-ink font-bold border-2 border-ink">
+              REWARD GRANTED
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Description */}
+      <p className="font-mono text-xs text-ink/80 mb-3 line-clamp-3">{sub.description}</p>
+
+      {/* Files */}
+      {sub.encrypted_files.length > 0 && (
+        <div className="mb-3">
+          <p className="font-mono text-[10px] uppercase text-ink/40 mb-1.5 flex items-center gap-1">
+            <Upload size={10} /> {sub.encrypted_files.length} ENCRYPTED FILE{sub.encrypted_files.length > 1 ? "S" : ""}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {sub.encrypted_files.map((f) => (
+              <a
+                key={f.storedName}
+                href={`/api/proxy/files/${f.storedName}?mime=${encodeURIComponent(f.mimeType)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 border-2 border-ink font-mono text-[10px] uppercase hover:bg-acid/20 transition-colors"
+              >
+                <FileText size={10} />
+                <span className="max-w-[120px] truncate">{f.originalName}</span>
+                <span className="text-ink/40">{fmtBytes(f.size)}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Admin note (if already reviewed) */}
+      {sub.admin_note && (
+        <div className="mb-3 p-2 bg-ink/5 border-l-4 border-ink/20">
+          <p className="font-mono text-[10px] text-ink/50 uppercase mb-0.5">ADMIN NOTE</p>
+          <p className="font-mono text-xs">{sub.admin_note}</p>
+        </div>
+      )}
+
+      {/* Review controls (only for PENDING) */}
+      {sub.status === "PENDING" && (
+        <div className="border-t-2 border-ink/10 pt-3 mt-1">
+          <div className="flex items-end gap-2 flex-wrap">
+            <div className="flex-1 min-w-[200px]">
+              <label className="font-mono text-[10px] uppercase text-ink/40 block mb-1">ADMIN NOTE (optional)</label>
+              <input
+                className="brute-input font-mono text-xs w-full"
+                placeholder="Feedback for the student..."
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+              />
+            </div>
+            <button
+              disabled={reviewing === sub.submission_id}
+              onClick={() => onReview(sub.submission_id, "APPROVED", noteText)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-emerald text-white border-2 border-ink font-mono text-xs uppercase font-bold hover:opacity-90 transition-opacity min-h-[40px]"
+            >
+              <CheckCircle size={12} />
+              {reviewing === sub.submission_id ? "..." : "APPROVE + REWARD"}
+            </button>
+            <button
+              disabled={reviewing === sub.submission_id}
+              onClick={() => onReview(sub.submission_id, "REJECTED", noteText)}
+              className="btn-danger text-xs py-2 px-3 min-h-[40px]"
+            >
+              <XCircle size={12} />
+              REJECT
+            </button>
+          </div>
+        </div>
+      )}
+    </BruteCard>
   );
 }

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Plus, RefreshCw, AlertCircle } from "lucide-react";
 import { ExperienceCard }       from "@/components/cards/ExperienceCard";
 import { DropExperienceModal }  from "@/components/modals/DropExperienceModal";
+import { CampaignBoard }        from "@/components/sections/CampaignBoard";
 import { experiencesApi, ExperiencePublic } from "@/lib/api";
 import { useAuthStore }         from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -183,6 +184,11 @@ export function CampusWall() {
           onSuccess={() => { setDrop(false); fetchExperiences(); }}
         />
       )}
+
+      {/* ── CAMPAIGNS ─────────────────────────────────── */}
+      <div className="mt-8">
+        <CampaignBoard />
+      </div>
     </div>
   );
 }

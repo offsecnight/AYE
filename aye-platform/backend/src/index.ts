@@ -13,6 +13,8 @@ import experiencesRouter from "./routes/experiences";
 import chatRouter        from "./routes/chat";
 import publicRouter      from "./routes/public";
 import devAdminRouter    from "./routes/devAdmin";
+import uploadRouter      from "./routes/upload";
+import { adminCampaignRouter, studentCampaignRouter } from "./routes/campaigns";
 import { initSocket }    from "./socket";
 
 const app  = express();
@@ -85,6 +87,10 @@ app.use("/api/v1/experiences", experiencesRouter);
 app.use("/api/v1/chat",        chatRouter);
 app.use("/api/v1/public",      publicRouter);
 app.use("/api/v1/dev-admin",   devAdminRouter);
+app.use("/api/v1/dev-admin/campaigns", adminCampaignRouter);  // admin campaign CRUD
+app.use("/api/v1/campaigns",   studentCampaignRouter);        // student campaign views/submit
+app.use("/api/v1/upload",      uploadRouter);                 // file upload
+app.use("/api/v1/files",       uploadRouter);                 // file download (same router, /files/:name)
 
 // ── Health check ──────────────────────────────────────────────
 app.get("/health", (_req, res) => {

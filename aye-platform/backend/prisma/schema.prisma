@@ -75,6 +75,19 @@ enum RoomType {
   DM
 }
 
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  CLOSED
+}
+
+enum SubmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 // ─────────────────────────────────────────────────────────────
 // TABLE 1: colleges
 // ─────────────────────────────────────────────────────────────
@@ -97,6 +110,7 @@ model College {
   campus_otps  CampusOtp[]
   experiences  Experience[]
   chat_rooms   ChatRoom[]
+  campaigns    Campaign[]
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -115,6 +129,7 @@ model User {
   invited_by_user_id       String?
   trust_score              Int           @default(50)
   strike_count             Int           @default(0)
+  reward_points            Int           @default(0)
   account_status           AccountStatus @default(ACTIVE)
   hardware_fingerprint_hash String       @unique
   role                     UserRole      @default(STUDENT)
@@ -129,6 +144,7 @@ model User {
   post_interactions    PostInteraction[]
   resolution_polls     ResolutionPoll[]
   chat_messages        ChatMessage[]
+  campaign_submissions CampaignSubmission[]
 
   @@index([college_id])
   @@index([hardware_fingerprint_hash])
@@ -264,4 +280,52 @@ model BannedFingerprint {
   fingerprint_hash String   @id
   reason           String
   banned_at        DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────
+// TABLE 9: campaigns (admin-created drives for problem reporting)
+// ─────────────────────────────────────────────────────────────
+
+model Campaign {
+  campaign_id   String         @id @default(uuid())
+  college_id    String
+  title         String
+  description   String
+  reward_points Int            @default(10)
+  status        CampaignStatus @default(DRAFT)
+  starts_at     DateTime
+  ends_at       DateTime
+  created_by    String         // user_id of DEV_SUPER_ADMIN
+  created_at    DateTime       @default(now())
+  updated_at    DateTime       @updatedAt
+
+  college     College              @relation(fields: [college_id], references: [college_id])
+  submissions CampaignSubmission[]
+
+  @@index([college_id])
+  @@index([status])
+}
+
+// ─────────────────────────────────────────────────────────────
+// TABLE 10: campaign_submissions
+// ─────────────────────────────────────────────────────────────
+
+model CampaignSubmission {
+  submission_id   String           @id @default(uuid())
+  campaign_id     String
+  submitted_by    String           // user_id
+  title           String
+  description     String
+  encrypted_files Json             @default("[]")  // [{filename, originalName, mimeType, size}]
+  status          SubmissionStatus @default(PENDING)
+  reward_granted  Boolean          @default(false)
+  admin_note      String?
+  submitted_at    DateTime         @default(now())
+  reviewed_at     DateTime?
+
+  campaign  Campaign @relation(fields: [campaign_id], references: [campaign_id])
+  submitter User     @relation(fields: [submitted_by], references: [user_id])
+
+  @@index([campaign_id])
+  @@index([submitted_by])
 }
