@@ -603,14 +603,15 @@ export function DevAdminConsole() {
       )}
 
       {/* TAB BAR */}
-      <div className="flex border-3 border-ink mb-6 shadow-brutal overflow-x-auto">
+      <div className="flex flex-wrap border-3 border-ink mb-6 shadow-brutal">
         {TABS.map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
             className={cn(
-              "flex-1 py-3 font-mono font-bold text-xs uppercase tracking-widest",
-              "border-r-2 border-ink last:border-r-0 transition-colors whitespace-nowrap px-2",
+              "py-2.5 font-mono font-bold text-[11px] uppercase tracking-wider",
+              "border-r-2 border-b-2 border-ink transition-colors whitespace-nowrap px-3",
+              "last:border-r-0",
               tab === t.id
                 ? "bg-ink text-acid"
                 : "bg-paper text-ink hover:bg-acid/20"
