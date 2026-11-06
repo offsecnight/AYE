@@ -8,7 +8,7 @@ import { GradeDisplay } from "@/components/ui/GradeDisplay";
 import { useAuthStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
-type AdminTab = "stats" | "colleges" | "rooms" | "seed-otp" | "junk" | "bans" | "campaigns";
+type AdminTab = "stats" | "colleges" | "rooms" | "seed-otp" | "junk" | "bans" | "campaigns" | "issues";
 
 const TABS: { id: AdminTab; label: string }[] = [
   { id: "stats",     label: "STATS" },
@@ -18,6 +18,7 @@ const TABS: { id: AdminTab; label: string }[] = [
   { id: "junk",     label: "JUNK QUEUE" },
   { id: "bans",     label: "HW BANS" },
   { id: "campaigns",label: "CAMPAIGNS" },
+  { id: "issues",   label: "ISSUES" },
 ];
 
 // All client-side calls go through same-origin proxy â†’ backend
@@ -888,6 +889,11 @@ export function DevAdminConsole() {
       {tab === "campaigns" && user && (
         <CampaignPanel token={user.token} colleges={colleges} />
       )}
+
+      {/* -- ISSUES ------------------------------------------- */}
+      {tab === "issues" && user && (
+        <IssuesPanel token={user.token} />
+      )}
     </div>
   );
 }
@@ -1457,3 +1463,228 @@ function SubmissionCard({
     </BruteCard>
   );
 }
+
+
+
+// -- Issues Panel ----------------------------------------------
+
+interface IssueProof {
+  interaction_id:  string;
+  proof_media_url: string | null;
+  comment_text:    string | null;
+  created_at:      string;
+  user:            { ghost_handle: string };
+}
+
+interface Issue {
+  post_id:      string;
+  title:        string;
+  status:       string;
+  severity:     string;
+  category:     string;
+  aye_count:    number;
+  college:      string;
+  ghost_handle: string;
+  created_at:   string;
+  proofs:       IssueProof[];
+}
+
+const ISSUE_STATUS_COLORS: Record<string, string> = {
+  UNRESOLVED:    "bg-amber/20 text-amber",
+  TRENDING:      "bg-acid/20 text-ink",
+  FIX_PROPOSED:  "bg-blue-200 text-blue-800",
+  RESOLVED:      "bg-emerald/20 text-emerald",
+  HIDDEN_JUNK:   "bg-danger/20 text-danger",
+};
+
+function IssuesPanel({ token }: { token: string }) {
+  const [issues,    setIssues]   = useState<Issue[]>([]);
+  const [loading,   setLoading]  = useState(true);
+  const [error,     setError]    = useState<string | null>(null);
+  const [expanded,  setExpanded] = useState<string | null>(null);
+  const [closing,   setClosing]  = useState<string | null>(null);
+  const [filter,    setFilter]   = useState<string>("ALL");
+
+  useEffect(() => {
+    setLoading(true);
+    apiCall("/dev-admin/issues", "GET", undefined, token)
+      .then((r) => setIssues((r as { issues: Issue[] }).issues))
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load issues"))
+      .finally(() => setLoading(false));
+  }, [token]);
+
+  async function setStatus(postId: string, status: string) {
+    setClosing(postId);
+    try {
+      await apiCall(`/dev-admin/issues/${postId}/status`, "PATCH", { status }, token);
+      setIssues((prev) => prev.map((i) => i.post_id === postId ? { ...i, status } : i));
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Status update failed");
+    } finally {
+      setClosing(null);
+    }
+  }
+
+  const filtered = filter === "ALL"
+    ? issues
+    : issues.filter((i) => i.status === filter);
+
+  return (
+    <div>
+      {/* Header + filter */}
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+        <h2 className="font-mono font-bold text-sm uppercase">ALL ISSUES ({filtered.length})</h2>
+        <div className="flex border-2 border-ink overflow-hidden text-[10px] font-mono font-bold">
+          {["ALL", "UNRESOLVED", "TRENDING", "FIX_PROPOSED", "RESOLVED", "HIDDEN_JUNK"].map((s) => (
+            <button
+              key={s}
+              onClick={() => setFilter(s)}
+              className={cn("px-2 py-1.5 border-r-2 border-ink last:border-r-0 uppercase whitespace-nowrap",
+                filter === s ? "bg-ink text-acid" : "hover:bg-acid/20")}
+            >
+              {s.replace(/_/g, " ")}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {error && (
+        <div className="brute-card p-3 mb-4 flex items-center gap-2 border-t-4 border-danger">
+          <AlertCircle size={14} className="text-danger shrink-0" />
+          <p className="font-mono text-xs text-danger uppercase">{error}</p>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex flex-col gap-3">
+          {[1, 2, 3].map((i) => <div key={i} className="brute-card h-16 animate-pulse" />)}
+        </div>
+      ) : filtered.length === 0 ? (
+        <BruteCard className="p-8 text-center" accent="none">
+          <p className="font-mono text-xs text-ink/40 uppercase">NO ISSUES MATCH THIS FILTER</p>
+        </BruteCard>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {filtered.map((issue) => (
+            <BruteCard
+              key={issue.post_id}
+              className="overflow-hidden"
+              accent={issue.status === "RESOLVED" ? "none" : issue.severity === "CRITICAL" ? "danger" : "none"}
+            >
+              {/* Issue row */}
+              <div className="p-3 flex items-start gap-3 flex-wrap">
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <span className={cn("font-mono text-[10px] px-1.5 py-0.5 font-bold uppercase border border-ink/20", ISSUE_STATUS_COLORS[issue.status] ?? "")}>
+                      {issue.status.replace(/_/g, " ")}
+                    </span>
+                    <span className="font-mono text-[10px] text-ink/40 uppercase">{issue.severity}</span>
+                    <span className="font-mono text-[10px] text-ink/40 uppercase">{issue.category.replace(/_/g, " ")}</span>
+                    <span className="font-mono text-[10px] text-ink/40">?? {issue.aye_count}</span>
+                  </div>
+                  <p className="font-mono text-sm font-bold uppercase truncate">{issue.title}</p>
+                  <p className="font-mono text-[10px] text-ink/40 mt-0.5">
+                    @{issue.ghost_handle} · {issue.college} · {new Date(issue.created_at).toLocaleDateString("en-IN")}
+                  </p>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                  {issue.proofs.length > 0 && (
+                    <button
+                      onClick={() => setExpanded(expanded === issue.post_id ? null : issue.post_id)}
+                      className="font-mono text-[10px] px-2 py-1.5 border-2 border-ink uppercase font-bold hover:bg-acid/20 min-h-[36px]"
+                    >
+                      {expanded === issue.post_id ? "HIDE" : `PROOFS (${issue.proofs.length})`}
+                    </button>
+                  )}
+                  {issue.status !== "RESOLVED" && (
+                    <button
+                      onClick={() => setStatus(issue.post_id, "RESOLVED")}
+                      disabled={closing === issue.post_id}
+                      className="font-mono text-[10px] px-2 py-1.5 border-2 border-emerald text-emerald uppercase font-bold hover:bg-emerald hover:text-white transition-colors min-h-[36px]"
+                    >
+                      {closing === issue.post_id ? "..." : "? CLOSE"}
+                    </button>
+                  )}
+                  {issue.status !== "HIDDEN_JUNK" && (
+                    <button
+                      onClick={() => setStatus(issue.post_id, "HIDDEN_JUNK")}
+                      disabled={closing === issue.post_id}
+                      className="font-mono text-[10px] px-2 py-1.5 border-2 border-ink uppercase font-bold hover:bg-danger hover:text-white transition-colors min-h-[36px]"
+                    >
+                      HIDE
+                    </button>
+                  )}
+                  {issue.status === "RESOLVED" && (
+                    <button
+                      onClick={() => setStatus(issue.post_id, "UNRESOLVED")}
+                      disabled={closing === issue.post_id}
+                      className="font-mono text-[10px] px-2 py-1.5 border-2 border-ink/30 uppercase font-bold hover:bg-ink/10 transition-colors min-h-[36px]"
+                    >
+                      REOPEN
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Proofs expander */}
+              {expanded === issue.post_id && issue.proofs.length > 0 && (
+                <div className="border-t-2 border-ink bg-ink/5 p-3 flex flex-col gap-3">
+                  <p className="font-mono text-[10px] uppercase text-ink/50 font-bold">CROWD PROOFS</p>
+                  {issue.proofs.map((proof) => {
+                    let files: { storedName: string; originalName: string; mimeType: string }[] = [];
+                    try {
+                      if (proof.proof_media_url) {
+                        const parsed = JSON.parse(proof.proof_media_url);
+                        if (Array.isArray(parsed)) files = parsed;
+                      }
+                    } catch { /* plain URL string, not JSON */ }
+
+                    return (
+                      <div key={proof.interaction_id} className="border-2 border-ink/20 bg-paper p-3">
+                        <p className="font-mono text-[10px] text-ink/50 uppercase mb-2">
+                          @{proof.user.ghost_handle} · {new Date(proof.created_at).toLocaleDateString("en-IN")}
+                        </p>
+                        {proof.comment_text && (
+                          <p className="font-mono text-xs mb-2">{proof.comment_text}</p>
+                        )}
+                        {files.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {files.map((f) => (
+                              <a
+                                key={f.storedName}
+                                href={`/api/proxy/files/${f.storedName}?mime=${encodeURIComponent(f.mimeType)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 px-2 py-1 border-2 border-ink font-mono text-[10px] uppercase hover:bg-acid/20 transition-colors"
+                              >
+                                ?? {f.originalName || f.storedName.slice(0, 12)}
+                              </a>
+                            ))}
+                          </div>
+                        ) : proof.proof_media_url ? (
+                          <a
+                            href={proof.proof_media_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-mono text-[10px] text-acid underline break-all"
+                          >
+                            {proof.proof_media_url}
+                          </a>
+                        ) : (
+                          <p className="font-mono text-[10px] text-ink/30 uppercase">No files attached</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </BruteCard>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+

@@ -287,7 +287,76 @@ router.delete("/rooms/:roomId", asyncHandler(async (req: Request, res: Response)
   res.json({ message: "Room deleted" });
 }));
 
+// -- GET /api/v1/dev-admin/issues -----------------------------
+// List all experiences across all colleges with crowd proofs
+router.get("/issues", asyncHandler(async (_req: Request, res: Response): Promise<void> => {
+  const issues = await prisma.experience.findMany({
+    where: { status: { not: "HIDDEN_JUNK" } },
+    orderBy: { created_at: "desc" },
+    take: 200,
+    include: {
+      college:  { select: { name: true, slug: true } },
+      author:   { select: { ghost_handle: true } },
+      post_interactions: {
+        where: { type: "CROWD_PROOF" },
+        select: {
+          interaction_id:  true,
+          proof_media_url: true,
+          comment_text:    true,
+          created_at:      true,
+          user:            { select: { ghost_handle: true } },
+        },
+        orderBy: { created_at: "desc" },
+      },
+    },
+  });
+
+  res.json({ issues: issues.map((i) => ({
+    post_id:       i.post_id,
+    title:         i.title,
+    status:        i.status,
+    severity:      i.severity,
+    category:      i.category,
+    aye_count:     i.aye_count,
+    college:       i.college.name,
+    ghost_handle:  i.hide_handle ? "Verified Campus Ghost" : i.author.ghost_handle,
+    created_at:    i.created_at,
+    proofs:        i.post_interactions,
+  })) });
+}));
+
+// -- PATCH /api/v1/dev-admin/issues/:id/status ----------------
+// Force-set an issue status (admin override)
+router.patch("/issues/:id/status", asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const { status, note } = req.body as { status: string; note?: string };
+  const validStatuses = ["RESOLVED", "HIDDEN_JUNK", "UNRESOLVED", "TRENDING"];
+  if (!validStatuses.includes(status)) {
+    res.status(400).json({ message: `status must be one of: ${validStatuses.join(", ")}` });
+    return;
+  }
+
+  const issue = await prisma.experience.findUnique({ where: { post_id: req.params.id } });
+  if (!issue) { res.status(404).json({ message: "Issue not found" }); return; }
+
+  const updated = await prisma.experience.update({
+    where: { post_id: req.params.id },
+    data: {
+      status:      status as import("@prisma/client").ExperienceStatus,
+      resolved_at: status === "RESOLVED" ? new Date() : undefined,
+    },
+  });
+
+  // Recalculate college grade if resolving
+  if (status === "RESOLVED") {
+    await prisma.college.update({
+      where: { college_id: issue.college_id },
+      data: { total_resolved: { increment: 1 } },
+    });
+    await (await import("../services/grading")).recalculateCollegeGrade(issue.college_id);
+  }
+
+  res.json({ issue: updated, note });
+}));
+
 export default router;
-
-
 
