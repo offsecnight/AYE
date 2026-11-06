@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { X, Upload, AlertTriangle, Eye, EyeOff, AlertCircle } from "lucide-react";
+import { useState, useRef } from "react";
+import { X, Upload, AlertTriangle, Eye, EyeOff, AlertCircle, FileText } from "lucide-react";
 import { experiencesApi } from "@/lib/api";
 import { playPostSuccessSound } from "@/lib/sounds";
 
@@ -16,13 +16,22 @@ const CATEGORIES = [
   "FACULTY", "INFRASTRUCTURE", "SAFETY",
 ];
 const SEVERITIES = ["NORMAL", "HIGH", "CRITICAL"];
+const API_BASE   = "/api/proxy";
+
+function fmtBytes(b: number) {
+  if (b < 1024) return `${b}B`;
+  if (b < 1024 * 1024) return `${(b / 1024).toFixed(0)}KB`;
+  return `${(b / (1024 * 1024)).toFixed(1)}MB`;
+}
 
 export function DropExperienceModal({ token, onClose, onSuccess }: Props) {
+  const fileRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     title: "", category: "", severity: "NORMAL",
     what_is_wrong: "", exact_location: "", impact_scope: "",
     hide_handle: false,
   });
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState<string | null>(null);
 
@@ -30,11 +39,43 @@ export function DropExperienceModal({ token, onClose, onSuccess }: Props) {
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
       setForm((f) => ({ ...f, [k]: e.target.value }));
 
+  function addFiles(fl: FileList | null) {
+    if (!fl) return;
+    setSelectedFiles((prev) => [...prev, ...Array.from(fl)].slice(0, 10));
+  }
+
+  function removeFile(i: number) {
+    setSelectedFiles((p) => p.filter((_, j) => j !== i));
+  }
+
   async function handleSubmit(ev: React.FormEvent) {
     ev.preventDefault();
     setLoading(true);
     setError(null);
     try {
+      // 1. Upload files first (if any)
+      let mediaUrls: string[] = [];
+      if (selectedFiles.length > 0) {
+        const fd = new FormData();
+        selectedFiles.forEach((f) => fd.append("files", f));
+        const uploadRes = await fetch(`${API_BASE}/upload`, {
+          method: "POST",
+          credentials: "include",
+          headers: { Authorization: `Bearer ${token}` },
+          body: fd,
+        });
+        if (!uploadRes.ok) {
+          const e = await uploadRes.json().catch(() => ({})) as { message?: string };
+          throw new Error(e.message ?? "File upload failed");
+        }
+        const uploaded = await uploadRes.json() as { files: { storedName: string; originalName: string; mimeType: string }[] };
+        // Store as download URLs the frontend can use
+        mediaUrls = uploaded.files.map(
+          (f) => `/api/proxy/files/${f.storedName}?mime=${encodeURIComponent(f.mimeType)}`
+        );
+      }
+
+      // 2. Create the experience
       await experiencesApi.create(
         {
           title:          form.title,
@@ -44,7 +85,7 @@ export function DropExperienceModal({ token, onClose, onSuccess }: Props) {
           exact_location: form.exact_location,
           impact_scope:   form.impact_scope,
           hide_handle:    form.hide_handle,
-          media_urls:     [],
+          media_urls:     mediaUrls,
         },
         token
       );
@@ -62,7 +103,7 @@ export function DropExperienceModal({ token, onClose, onSuccess }: Props) {
       {/* Backdrop */}
       <div className="absolute inset-0 bg-ink/60" onClick={onClose} aria-hidden="true" />
 
-      {/* Modal — bottom sheet on mobile, centered on sm+ */}
+      {/* Modal */}
       <div
         className="relative w-full sm:max-w-xl overflow-y-auto scroll-touch brute-card shadow-brutal-lg
                    max-h-[92dvh] sm:max-h-[90vh] rounded-t-none sm:rounded-none"
@@ -79,9 +120,7 @@ export function DropExperienceModal({ token, onClose, onSuccess }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b-2 border-ink bg-ink text-acid">
           <div>
-            <div className="text-[10px] font-mono uppercase tracking-widest text-acid/60 mb-0.5">
-              CAMPUS / WALL
-            </div>
+            <div className="text-[10px] font-mono uppercase tracking-widest text-acid/60 mb-0.5">CAMPUS / WALL</div>
             <h3 id="drop-modal-title" className="font-mono font-bold text-base sm:text-lg uppercase">
               DROP AN EXPERIENCE
             </h3>
@@ -95,13 +134,11 @@ export function DropExperienceModal({ token, onClose, onSuccess }: Props) {
           </button>
         </div>
 
-        {/* SERIOUSNESS BANNER */}
+        {/* Seriousness banner */}
         <div className="mx-4 mt-4 border-3 border-danger bg-danger/10 p-3 flex gap-3">
           <AlertTriangle size={16} className="text-danger shrink-0 mt-0.5" />
           <div>
-            <p className="font-mono text-xs font-bold text-danger uppercase tracking-wider mb-1">
-              SERIOUSNESS POLICY
-            </p>
+            <p className="font-mono text-xs font-bold text-danger uppercase tracking-wider mb-1">SERIOUSNESS POLICY</p>
             <p className="font-mono text-xs text-ink/70">
               Real problems only. Jokes = 1 Strike + Trust penalty. 2 strikes = hardware ban.
             </p>
@@ -130,9 +167,7 @@ export function DropExperienceModal({ token, onClose, onSuccess }: Props) {
               onChange={set("title")}
               required
             />
-            <div className="text-right font-mono text-[10px] text-ink/30 mt-1">
-              {form.title.length}/140
-            </div>
+            <div className="text-right font-mono text-[10px] text-ink/30 mt-1">{form.title.length}/140</div>
           </div>
 
           {/* Category + Severity */}
@@ -159,7 +194,7 @@ export function DropExperienceModal({ token, onClose, onSuccess }: Props) {
           {/* What's wrong */}
           <div>
             <label htmlFor="exp-wrong" className="font-mono text-xs font-bold uppercase tracking-wider block mb-2">
-              WHAT'S WRONG <span className="text-danger">*</span>
+              WHAT&apos;S WRONG <span className="text-danger">*</span>
             </label>
             <textarea
               id="exp-wrong"
@@ -172,45 +207,75 @@ export function DropExperienceModal({ token, onClose, onSuccess }: Props) {
             />
           </div>
 
-          {/* Location + Impact — stack on mobile */}
+          {/* Location + Impact */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label htmlFor="exp-loc" className="font-mono text-xs font-bold uppercase tracking-wider block mb-2">
                 EXACT LOCATION <span className="text-danger">*</span>
               </label>
-              <input id="exp-loc" className="brute-input" placeholder="Block B, Lab 2" value={form.exact_location} onChange={set("exact_location")} required />
+              <input id="exp-loc" className="brute-input" placeholder="Block B, Lab 2"
+                value={form.exact_location} onChange={set("exact_location")} required />
             </div>
             <div>
               <label htmlFor="exp-impact" className="font-mono text-xs font-bold uppercase tracking-wider block mb-2">
                 IMPACT SCOPE <span className="text-danger">*</span>
               </label>
-              <input id="exp-impact" className="brute-input" placeholder="150+ BCA students" value={form.impact_scope} onChange={set("impact_scope")} required />
+              <input id="exp-impact" className="brute-input" placeholder="150+ BCA students"
+                value={form.impact_scope} onChange={set("impact_scope")} required />
             </div>
           </div>
 
-          {/* Media upload */}
+          {/* Evidence media — ALL file types */}
           <div>
             <label className="font-mono text-xs font-bold uppercase tracking-wider block mb-2">
               EVIDENCE MEDIA
+              <span className="font-normal text-ink/40 ml-2 text-[10px]">images, video, audio, PDF, docs, zip — any type</span>
             </label>
-            <label className="brute-input flex items-center justify-center gap-2 cursor-pointer min-h-[64px] hover:bg-acid/10 transition-colors">
-              <Upload size={18} className="text-ink/40 shrink-0" />
-              <span className="font-mono text-xs text-ink/40 uppercase text-center">
-                TAP TO UPLOAD — EXIF AUTO-STRIPPED
+
+            {/* Drop zone */}
+            <div
+              className="border-2 border-dashed border-ink/30 p-5 text-center cursor-pointer hover:border-acid hover:bg-acid/5 transition-colors"
+              onClick={() => fileRef.current?.click()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => { e.preventDefault(); addFiles(e.dataTransfer.files); }}
+            >
+              <Upload size={18} className="mx-auto mb-2 text-ink/30" />
+              <span className="font-mono text-xs text-ink/40 uppercase">
+                TAP TO UPLOAD OR DRAG & DROP — ENCRYPTED ON SERVER
               </span>
-              <input type="file" accept="image/*,video/*" multiple className="sr-only" tabIndex={-1} />
-            </label>
+            </div>
+            <input
+              ref={fileRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(e) => addFiles(e.target.files)}
+            />
+
+            {/* Selected files list */}
+            {selectedFiles.length > 0 && (
+              <div className="mt-2 flex flex-col gap-1">
+                {selectedFiles.map((f, i) => (
+                  <div key={i} className="flex items-center gap-2 px-2 py-1.5 border-2 border-ink/20 bg-ink/5">
+                    <FileText size={11} className="text-ink/40 shrink-0" />
+                    <span className="font-mono text-[10px] flex-1 truncate">{f.name}</span>
+                    <span className="font-mono text-[10px] text-ink/30">{fmtBytes(f.size)}</span>
+                    <button type="button" onClick={() => removeFile(i)}
+                      className="text-danger hover:opacity-70 shrink-0" aria-label="Remove">
+                      <X size={11} />
+                    </button>
+                  </div>
+                ))}
+                <p className="font-mono text-[10px] text-ink/30 text-right">{selectedFiles.length}/10 files</p>
+              </div>
+            )}
           </div>
 
           {/* Hide handle toggle */}
           <div className="flex items-center justify-between border-2 border-ink p-3 gap-3">
             <div className="min-w-0">
-              <div className="font-mono text-xs font-bold uppercase tracking-wider">
-                HIDE MY GHOST HANDLE
-              </div>
-              <div className="font-mono text-[10px] text-ink/50 mt-0.5">
-                Post as "Verified Campus Ghost"
-              </div>
+              <div className="font-mono text-xs font-bold uppercase tracking-wider">HIDE MY GHOST HANDLE</div>
+              <div className="font-mono text-[10px] text-ink/50 mt-0.5">Post as "Verified Campus Ghost"</div>
             </div>
             <button
               type="button"
@@ -227,7 +292,11 @@ export function DropExperienceModal({ token, onClose, onSuccess }: Props) {
 
           {/* Submit */}
           <button type="submit" disabled={loading} className="btn-danger w-full justify-center">
-            {loading ? <span className="animate-blink">DROPPING...</span> : "DROP THIS EXPERIENCE"}
+            {loading ? (
+              <span className="animate-blink">
+                {selectedFiles.length > 0 ? "UPLOADING FILES..." : "DROPPING..."}
+              </span>
+            ) : "DROP THIS EXPERIENCE"}
           </button>
         </form>
       </div>

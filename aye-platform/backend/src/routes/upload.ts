@@ -34,39 +34,11 @@ fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 const MAX_FILE_MB   = parseInt(process.env.MAX_FILE_SIZE_MB ?? "50", 10);
 const MAX_FILES     = 10;
 
-const ALLOWED_MIME_TYPES = new Set([
-  // Images
-  "image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml",
-  // Video
-  "video/mp4", "video/webm", "video/ogg",
-  // Audio
-  "audio/mpeg", "audio/ogg", "audio/wav", "audio/webm",
-  // Documents
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "application/vnd.ms-powerpoint",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-  // Text / code
-  "text/plain", "text/csv", "text/html",
-  // Archives
-  "application/zip",
-  "application/x-rar-compressed",
-  "application/x-7z-compressed",
-]);
-
 const upload = multer({
   storage: multer.memoryStorage(),
   limits:  { fileSize: MAX_FILE_MB * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    if (ALLOWED_MIME_TYPES.has(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error(`File type not allowed: ${file.mimetype}`));
-    }
-  },
+  // Accept any file type — validation is the user's responsibility
+  // The encrypted-at-rest storage means content is opaque anyway
 });
 
 // ── POST /api/v1/upload ───────────────────────────────────────
