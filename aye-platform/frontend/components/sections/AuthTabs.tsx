@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { LoginForm }    from "@/components/forms/LoginForm";
 import { RegisterForm } from "@/components/forms/RegisterForm";
 import { RecoverForm }  from "@/components/forms/RecoverForm";
+import { useAuthStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
 type Tab = "login" | "register" | "recover";
@@ -18,11 +19,22 @@ const tabs: { id: Tab; label: string }[] = [
 export function AuthTabs() {
   const searchParams = useSearchParams();
   const router       = useRouter();
+  const { user }     = useAuthStore();
   const initialTab   = (searchParams.get("tab") as Tab) ?? "login";
 
   const [active, setActive] = useState<Tab>(
     tabs.some((t) => t.id === initialTab) ? initialTab : "login"
   );
+
+  // Redirect away if already authenticated
+  useEffect(() => {
+    if (!user) return;
+    const dest = user.role === "DEV_SUPER_ADMIN" ? "/dev-admin" : "/campus/wall";
+    router.replace(dest);
+  }, [user, router]);
+
+  // While redirect is in flight, render nothing
+  if (user) return null;
 
   // Keep URL in sync with tab
   function switchTab(id: Tab) {
