@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { X, Upload, AlertTriangle, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { experiencesApi } from "@/lib/api";
+import { playPostSuccessSound } from "@/lib/sounds";
 
 interface Props {
   token:     string;
@@ -47,6 +48,7 @@ export function DropExperienceModal({ token, onClose, onSuccess }: Props) {
         },
         token
       );
+      playPostSuccessSound();
       onSuccess();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to create experience");

@@ -8,6 +8,7 @@ import { ExperiencePublic, experiencesApi } from "@/lib/api";
 import { StatusBadge, SeverityBadge, CategoryBadge } from "@/components/ui/StatusBadge";
 import { UnresolvedTimer } from "@/components/ui/Timer";
 import { cn } from "@/lib/utils";
+import { playAyeSound } from "@/lib/sounds";
 
 interface Props {
   experience: ExperiencePublic;
@@ -36,6 +37,7 @@ export function ExperienceCard({ experience: e, token, onUpdate }: Props) {
       const res = await experiencesApi.aye(e.post_id, token) as { action: string; aye_count: number };
       setAye(res.aye_count);
       setAyeAct(res.action === "added");
+      if (res.action === "added") playAyeSound();
       onUpdate?.();
     } catch {
       setAyeAct(wasActive);
