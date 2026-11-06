@@ -45,10 +45,20 @@ async function proxy(
 ): Promise<NextResponse> {
   const upstream = `${BACKEND}/api/v1/${pathSegments.join("/")}${req.nextUrl.search}`;
 
-  // Forward relevant headers but strip host
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
+  const contentType = req.headers.get("content-type") ?? "";
+  const isMultipart = contentType.includes("multipart/form-data");
+
+  // Build forwarded headers
+  const headers: Record<string, string> = {};
+
+  // For multipart: forward the original Content-Type (includes boundary).
+  // For everything else: force application/json.
+  if (isMultipart) {
+    headers["Content-Type"] = contentType;
+  } else {
+    headers["Content-Type"] = "application/json";
+  }
+
   const auth = req.headers.get("authorization");
   if (auth) headers["Authorization"] = auth;
   const cookie = req.headers.get("cookie");
@@ -56,22 +66,32 @@ async function proxy(
 
   let body: BodyInit | undefined;
   if (method !== "GET" && method !== "DELETE") {
-    try {
-      const text = await req.text();
-      if (text) body = text;
-    } catch {
-      // no body
+    if (isMultipart) {
+      // Stream the raw bytes — do NOT read as text, that corrupts binary files
+      body = await req.arrayBuffer();
+    } else {
+      try {
+        const text = await req.text();
+        if (text) body = text;
+      } catch {
+        // no body
+      }
     }
   }
 
   try {
     const res = await fetch(upstream, { method, headers, body });
-    const data = await res.text();
+    const data = await res.arrayBuffer(); // read as binary to handle both JSON and file downloads
 
     // Forward Set-Cookie from backend to browser
-    const responseHeaders = new Headers({ "Content-Type": "application/json" });
+    const responseHeaders = new Headers();
+    const backendCT = res.headers.get("content-type");
+    if (backendCT) responseHeaders.set("Content-Type", backendCT);
     const setCookie = res.headers.get("set-cookie");
     if (setCookie) responseHeaders.set("set-cookie", setCookie);
+    // Forward Content-Disposition for file downloads
+    const cd = res.headers.get("content-disposition");
+    if (cd) responseHeaders.set("Content-Disposition", cd);
 
     return new NextResponse(data, {
       status: res.status,
@@ -84,3 +104,11 @@ async function proxy(
     );
   }
 }
+
+// Disable Next.js body parsing — we forward the raw stream to the backend.
+// Without this, Next.js consumes the multipart body before our handler sees it.
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
