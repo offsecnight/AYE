@@ -1,3 +1,4 @@
+import { asyncHandler } from "../utils/asyncHandler";
 /**
  * File upload / download routes.
  *
@@ -140,3 +141,6 @@ router.get(
 );
 
 export default router;
+
+
+

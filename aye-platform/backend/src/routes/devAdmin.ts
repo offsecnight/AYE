@@ -1,3 +1,4 @@
+import { asyncHandler } from "../utils/asyncHandler";
 import { Router, Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
@@ -48,7 +49,7 @@ router.get("/colleges", async (_req: Request, res: Response): Promise<void> => {
  *     security:
  *       - bearerAuth: []
  */
-router.post("/colleges", async (req: Request, res: Response): Promise<void> => {
+router.post("/colleges", asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const parsed = CollegeSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ message: "Validation error", errors: parsed.error.flatten() });
@@ -73,7 +74,7 @@ router.post("/colleges", async (req: Request, res: Response): Promise<void> => {
   });
 
   res.status(201).json({ college });
-});
+}));
 
 // ── POST /api/v1/dev-admin/ban-user ───────────────────────────
 /**
@@ -85,7 +86,7 @@ router.post("/colleges", async (req: Request, res: Response): Promise<void> => {
  *     security:
  *       - bearerAuth: []
  */
-router.post("/ban-user", async (req: Request, res: Response): Promise<void> => {
+router.post("/ban-user", asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { user_id, reason } = req.body as { user_id: string; reason: string };
 
   if (!user_id || !reason) {
@@ -109,7 +110,7 @@ router.post("/ban-user", async (req: Request, res: Response): Promise<void> => {
   await applyInviterPenalty(user_id);
 
   res.json({ message: `User @${user.ghost_handle} hardware banned`, ghost_handle: user.ghost_handle });
-});
+}));
 
 // ── POST /api/v1/dev-admin/seed-otp ───────────────────────────
 /**
@@ -121,7 +122,7 @@ router.post("/ban-user", async (req: Request, res: Response): Promise<void> => {
  *     security:
  *       - bearerAuth: []
  */
-router.post("/seed-otp", async (req: Request, res: Response): Promise<void> => {
+router.post("/seed-otp", asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { college_id, count = 10 } = req.body as { college_id: string; count?: number };
 
   if (!college_id) { res.status(400).json({ message: "college_id required" }); return; }
@@ -154,7 +155,7 @@ router.post("/seed-otp", async (req: Request, res: Response): Promise<void> => {
     college: college.name,
     codes: codes.map((c) => ({ otp_code: c.otp_code, expires_at: c.expires_at })),
   });
-});
+}));
 
 // ── GET /api/v1/dev-admin/stats ───────────────────────────────
 /**
@@ -243,7 +244,7 @@ router.get("/rooms", async (_req: Request, res: Response): Promise<void> => {
  *     security:
  *       - bearerAuth: []
  */
-router.post("/rooms", async (req: Request, res: Response): Promise<void> => {
+router.post("/rooms", asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { college_id, room_type, name } = req.body as {
     college_id: string;
     room_type:  "GLOBAL" | "BRANCH" | "ISSUE_ROOM";
@@ -263,7 +264,7 @@ router.post("/rooms", async (req: Request, res: Response): Promise<void> => {
   });
 
   res.status(201).json({ room });
-});
+}));
 
 // ── DELETE /api/v1/dev-admin/rooms/:roomId ────────────────────
 /**
@@ -275,7 +276,7 @@ router.post("/rooms", async (req: Request, res: Response): Promise<void> => {
  *     security:
  *       - bearerAuth: []
  */
-router.delete("/rooms/:roomId", async (req: Request, res: Response): Promise<void> => {
+router.delete("/rooms/:roomId", asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const room = await prisma.chatRoom.findUnique({ where: { room_id: req.params.roomId } });
   if (!room) { res.status(404).json({ message: "Room not found" }); return; }
 
@@ -284,6 +285,9 @@ router.delete("/rooms/:roomId", async (req: Request, res: Response): Promise<voi
   await prisma.chatRoom.delete({ where: { room_id: req.params.roomId } });
 
   res.json({ message: "Room deleted" });
-});
+}));
 
 export default router;
+
+
+

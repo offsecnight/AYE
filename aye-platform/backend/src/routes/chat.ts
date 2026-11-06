@@ -1,3 +1,4 @@
+import { asyncHandler } from "../utils/asyncHandler";
 import { Router, Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import { requireAuth, requireActive } from "../middleware/auth";
@@ -18,13 +19,13 @@ router.use(requireAuth, requireActive, collegeSiloGuard);
  *     security:
  *       - bearerAuth: []
  */
-router.get("/rooms", async (req: Request, res: Response): Promise<void> => {
+router.get("/rooms", asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const rooms = await prisma.chatRoom.findMany({
     where: { college_id: req.user!.college_id },
     orderBy: { created_at: "asc" },
   });
   res.json({ rooms });
-});
+}));
 
 // ── POST /api/v1/chat/rooms/:roomId/messages ─────────────────
 /**
@@ -36,7 +37,7 @@ router.get("/rooms", async (req: Request, res: Response): Promise<void> => {
  *     security:
  *       - bearerAuth: []
  */
-router.post("/rooms/:roomId/messages", async (req: Request, res: Response): Promise<void> => {
+router.post("/rooms/:roomId/messages", asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const room = await prisma.chatRoom.findUnique({ where: { room_id: req.params.roomId } });
   if (!room) { res.status(404).json({ message: "Room not found" }); return; }
 
@@ -72,7 +73,7 @@ router.post("/rooms/:roomId/messages", async (req: Request, res: Response): Prom
       created_at:    message.created_at,
     },
   });
-});
+}));
 
 // ── GET /api/v1/chat/rooms/:roomId/messages ───────────────────
 /**
@@ -84,7 +85,7 @@ router.post("/rooms/:roomId/messages", async (req: Request, res: Response): Prom
  *     security:
  *       - bearerAuth: []
  */
-router.get("/rooms/:roomId/messages", async (req: Request, res: Response): Promise<void> => {
+router.get("/rooms/:roomId/messages", asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const room = await prisma.chatRoom.findUnique({ where: { room_id: req.params.roomId } });
   if (!room) { res.status(404).json({ message: "Room not found" }); return; }
 
@@ -113,6 +114,9 @@ router.get("/rooms/:roomId/messages", async (req: Request, res: Response): Promi
   }));
 
   res.json({ messages: masked.reverse() });
-});
+}));
 
 export default router;
+
+
+

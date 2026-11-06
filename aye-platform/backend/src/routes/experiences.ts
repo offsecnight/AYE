@@ -1,4 +1,5 @@
-import { Router, Request, Response } from "express";
+import { Router, Request, Response, NextFunction } from "express";
+import express from "express";
 import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { requireAuth } from "../middleware/auth";
@@ -14,6 +15,18 @@ const prisma = new PrismaClient();
 // All experience routes require auth + active account + silo guard
 router.use(requireAuth, requireActive, collegeSiloGuard);
 
+// ── Async error wrapper ───────────────────────────────────────
+// Express 4 doesn't catch async throws automatically.
+// Wrap every handler so errors get forwarded to the global error handler
+// instead of crashing the process.
+function asyncHandler(
+  fn: (req: Request, res: Response, next: express.NextFunction) => Promise<void>
+) {
+  return (req: Request, res: Response, next: express.NextFunction) => {
+    fn(req, res, next).catch(next);
+  };
+}
+
 const CreateSchema = z.object({
   title:          z.string().min(5).max(140),
   what_is_wrong:  z.string().min(20),
@@ -22,7 +35,8 @@ const CreateSchema = z.object({
   category:       z.enum(["HOSTEL","MESS_FOOD","LABS_WIFI","FEES_ADMIN","FACULTY","INFRASTRUCTURE","SAFETY"]),
   severity:       z.enum(["NORMAL","HIGH","CRITICAL"]).default("NORMAL"),
   hide_handle:    z.boolean().default(false),
-  media_urls:     z.array(z.string().url()).max(10).default([]),
+  // Accept any string — could be an absolute URL or a /api/proxy/files/... path
+  media_urls:     z.array(z.string().min(1)).max(10).default([]),
 });
 
 // ── GET /api/v1/experiences ───────────────────────────────────
@@ -45,7 +59,7 @@ const CreateSchema = z.object({
  *         name: sort
  *         schema: { type: string, enum: [ayes, newest, oldest_unresolved] }
  */
-router.get("/", async (req: Request, res: Response): Promise<void> => {
+router.get("/", asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { status, category, sort = "ayes" } = req.query as Record<string, string>;
   const college_id = req.user!.college_id;
 
@@ -77,7 +91,7 @@ router.get("/", async (req: Request, res: Response): Promise<void> => {
   }));
 
   res.json({ experiences: masked });
-});
+}));
 
 // ── POST /api/v1/experiences ──────────────────────────────────
 /**
@@ -89,7 +103,7 @@ router.get("/", async (req: Request, res: Response): Promise<void> => {
  *     security:
  *       - bearerAuth: []
  */
-router.post("/", async (req: Request, res: Response): Promise<void> => {
+router.post("/", asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const parsed = CreateSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ message: "Validation error", errors: parsed.error.flatten() });
@@ -113,7 +127,7 @@ router.post("/", async (req: Request, res: Response): Promise<void> => {
   });
 
   res.status(201).json({ experience });
-});
+}));
 
 // ── GET /api/v1/experiences/:id ───────────────────────────────
 /**
@@ -125,7 +139,7 @@ router.post("/", async (req: Request, res: Response): Promise<void> => {
  *     security:
  *       - bearerAuth: []
  */
-router.get("/:id", async (req: Request, res: Response): Promise<void> => {
+router.get("/:id", asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const post = await prisma.experience.findUnique({
     where: { post_id: req.params.id },
     include: {
@@ -154,7 +168,7 @@ router.get("/:id", async (req: Request, res: Response): Promise<void> => {
     ghost_handle: post.hide_handle ? "Verified Campus Ghost" : post.author.ghost_handle,
     author: undefined,
   });
-});
+}));
 
 // ── POST /api/v1/experiences/:id/aye ─────────────────────────
 /**
@@ -166,7 +180,7 @@ router.get("/:id", async (req: Request, res: Response): Promise<void> => {
  *     security:
  *       - bearerAuth: []
  */
-router.post("/:id/aye", async (req: Request, res: Response): Promise<void> => {
+router.post("/:id/aye", asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const user_id = req.user!.user_id;
   const post_id = req.params.id;
 
@@ -197,7 +211,7 @@ router.post("/:id/aye", async (req: Request, res: Response): Promise<void> => {
   await checkTrendingEscalation(post_id);
 
   res.json({ action: "added", aye_count: updated.aye_count });
-});
+}));
 
 // ── POST /api/v1/experiences/:id/flag-junk ────────────────────
 /**
@@ -209,7 +223,7 @@ router.post("/:id/aye", async (req: Request, res: Response): Promise<void> => {
  *     security:
  *       - bearerAuth: []
  */
-router.post("/:id/flag-junk", async (req: Request, res: Response): Promise<void> => {
+router.post("/:id/flag-junk", asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const user_id = req.user!.user_id;
   const post_id = req.params.id;
 
@@ -233,7 +247,7 @@ router.post("/:id/flag-junk", async (req: Request, res: Response): Promise<void>
   await runAntiTrollCheck(post_id);
 
   res.json({ junk_flag_count: updated.junk_flag_count });
-});
+}));
 
 // ── POST /api/v1/experiences/:id/crowd-proof ─────────────────
 /**
@@ -245,7 +259,7 @@ router.post("/:id/flag-junk", async (req: Request, res: Response): Promise<void>
  *     security:
  *       - bearerAuth: []
  */
-router.post("/:id/crowd-proof", async (req: Request, res: Response): Promise<void> => {
+router.post("/:id/crowd-proof", asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { proof_media_url, comment_text } = req.body as {
     proof_media_url?: string;
     comment_text?: string;
@@ -266,7 +280,7 @@ router.post("/:id/crowd-proof", async (req: Request, res: Response): Promise<voi
   });
 
   res.status(201).json({ interaction });
-});
+}));
 
 // ── POST /api/v1/experiences/:id/propose-fix ─────────────────
 /**
@@ -278,7 +292,7 @@ router.post("/:id/crowd-proof", async (req: Request, res: Response): Promise<voi
  *     security:
  *       - bearerAuth: []
  */
-router.post("/:id/propose-fix", async (req: Request, res: Response): Promise<void> => {
+router.post("/:id/propose-fix", asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { fix_proof_media_url, fix_note } = req.body as {
     fix_proof_media_url: string;
     fix_note?: string;
@@ -322,7 +336,7 @@ router.post("/:id/propose-fix", async (req: Request, res: Response): Promise<voi
   ]);
 
   res.status(201).json({ poll });
-});
+}));
 
 // ── POST /api/v1/experiences/:id/vote-fix ────────────────────
 /**
@@ -334,7 +348,7 @@ router.post("/:id/propose-fix", async (req: Request, res: Response): Promise<voi
  *     security:
  *       - bearerAuth: []
  */
-router.post("/:id/vote-fix", async (req: Request, res: Response): Promise<void> => {
+router.post("/:id/vote-fix", asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { vote } = req.body as { vote: "YES" | "NO" };
   if (!["YES", "NO"].includes(vote)) {
     res.status(400).json({ message: "vote must be YES or NO" });
@@ -406,6 +420,8 @@ router.post("/:id/vote-fix", async (req: Request, res: Response): Promise<void> 
   }
 
   res.json({ votes_cast: total, yes_fixed_votes: updatedPoll.yes_fixed_votes, no_broken_votes: updatedPoll.no_broken_votes });
-});
+}));
 
 export default router;
+
+

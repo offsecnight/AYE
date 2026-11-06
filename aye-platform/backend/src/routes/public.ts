@@ -1,3 +1,4 @@
+import { asyncHandler } from "../utils/asyncHandler";
 import { Router, Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 
@@ -17,7 +18,7 @@ const prisma = new PrismaClient();
  *         required: true
  *         schema: { type: string }
  */
-router.get("/scoreboard/:collegeSlug", async (req: Request, res: Response): Promise<void> => {
+router.get("/scoreboard/:collegeSlug", asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const college = await prisma.college.findUnique({
     where: { slug: req.params.collegeSlug },
   });
@@ -68,6 +69,9 @@ router.get("/scoreboard/:collegeSlug", async (req: Request, res: Response): Prom
     trending:        trending.map((p) => ({ ...p, ghost_handle: maskHandle(p), author: undefined })),
     longest_ignored: longestIgnored.map((p) => ({ ...p, ghost_handle: maskHandle(p), author: undefined })),
   });
-});
+}));
 
 export default router;
+
+
+

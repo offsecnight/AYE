@@ -1,3 +1,4 @@
+import { asyncHandler } from "../utils/asyncHandler";
 import { Router, Request, Response } from "express";
 import { PrismaClient, VerificationMethod } from "@prisma/client";
 import bcrypt from "bcryptjs";
@@ -115,7 +116,7 @@ router.post("/auth/generate-otp", requireAuth, async (req: Request, res: Respons
  *     summary: Validate GPS coordinates against college geofence
  *     tags: [Auth]
  */
-router.post("/auth/verify-gps", async (req: Request, res: Response): Promise<void> => {
+router.post("/auth/verify-gps", asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { college_id, lat, lng } = req.body as {
     college_id: string;
     lat: number;
@@ -149,7 +150,7 @@ router.post("/auth/verify-gps", async (req: Request, res: Response): Promise<voi
   }
 
   res.json({ valid: true, gps_token: result.gps_token, distance_meters: result.distance_meters });
-});
+}));
 
 // ── POST /api/v1/auth/register ────────────────────────────────
 /**
@@ -159,7 +160,7 @@ router.post("/auth/verify-gps", async (req: Request, res: Response): Promise<voi
  *     summary: Register new Zero-PII ghost account
  *     tags: [Auth]
  */
-router.post("/auth/register", async (req: Request, res: Response): Promise<void> => {
+router.post("/auth/register", asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const parsed = RegisterSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ message: "Validation error", errors: parsed.error.flatten() });
@@ -271,7 +272,7 @@ router.post("/auth/register", async (req: Request, res: Response): Promise<void>
       ghost_handle:       user.ghost_handle,
       secret_recovery_key: recovery_key_plain, // plaintext shown once, never stored
     });
-});
+}));
 
 // ── POST /api/v1/auth/login ───────────────────────────────────
 /**
@@ -281,7 +282,7 @@ router.post("/auth/register", async (req: Request, res: Response): Promise<void>
  *     summary: Login with ghost_handle + password + hardware fingerprint
  *     tags: [Auth]
  */
-router.post("/auth/login", async (req: Request, res: Response): Promise<void> => {
+router.post("/auth/login", asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const parsed = LoginSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ message: "Validation error", errors: parsed.error.flatten() });
@@ -337,7 +338,7 @@ router.post("/auth/login", async (req: Request, res: Response): Promise<void> =>
       trust_score:    user.trust_score,
       strike_count:   user.strike_count,
     });
-});
+}));
 
 // ── GET /api/v1/auth/me ───────────────────────────────────────
 /**
@@ -379,7 +380,7 @@ router.get("/auth/me", requireAuth, async (req: Request, res: Response): Promise
  *     summary: Reset password using ghost_handle + AYE Recovery Keycard
  *     tags: [Auth]
  */
-router.post("/auth/recover", async (req: Request, res: Response): Promise<void> => {
+router.post("/auth/recover", asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const parsed = RecoverSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ message: "Validation error", errors: parsed.error.flatten() });
@@ -407,6 +408,9 @@ router.post("/auth/recover", async (req: Request, res: Response): Promise<void> 
   });
 
   res.json({ message: "Password updated successfully" });
-});
+}));
 
 export default router;
+
+
+

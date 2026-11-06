@@ -1,3 +1,4 @@
+import { asyncHandler } from "../utils/asyncHandler";
 /**
  * Campaign Manager routes.
  *
@@ -128,7 +129,7 @@ adminCampaignRouter.get("/", async (_req: Request, res: Response): Promise<void>
  *     security:
  *       - bearerAuth: []
  */
-adminCampaignRouter.post("/", async (req: Request, res: Response): Promise<void> => {
+adminCampaignRouter.post("/", asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const parsed = CreateCampaignSchema.safeParse(req.body);
   if (!parsed.success) {
     const flat = parsed.error.flatten();
@@ -165,10 +166,10 @@ adminCampaignRouter.post("/", async (req: Request, res: Response): Promise<void>
   });
 
   res.status(201).json({ campaign });
-});
+}));
 
 // ── PATCH /api/v1/dev-admin/campaigns/:id ────────────────────
-adminCampaignRouter.patch("/:id", async (req: Request, res: Response): Promise<void> => {
+adminCampaignRouter.patch("/:id", asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const parsed = UpdateCampaignSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ message: "Validation error", errors: parsed.error.flatten() });
@@ -192,10 +193,10 @@ adminCampaignRouter.patch("/:id", async (req: Request, res: Response): Promise<v
   });
 
   res.json({ campaign: updated });
-});
+}));
 
 // ── DELETE /api/v1/dev-admin/campaigns/:id ───────────────────
-adminCampaignRouter.delete("/:id", async (req: Request, res: Response): Promise<void> => {
+adminCampaignRouter.delete("/:id", asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const campaign = await prisma.campaign.findUnique({
     where:   { campaign_id: req.params.id },
     include: { submissions: true },
@@ -212,7 +213,7 @@ adminCampaignRouter.delete("/:id", async (req: Request, res: Response): Promise<
 
   await prisma.campaign.delete({ where: { campaign_id: req.params.id } });
   res.json({ message: "Campaign and all submissions deleted" });
-});
+}));
 
 // ── GET /api/v1/dev-admin/campaigns/:id/submissions ──────────
 /**
@@ -224,7 +225,7 @@ adminCampaignRouter.delete("/:id", async (req: Request, res: Response): Promise<
  *     security:
  *       - bearerAuth: []
  */
-adminCampaignRouter.get("/:id/submissions", async (req: Request, res: Response): Promise<void> => {
+adminCampaignRouter.get("/:id/submissions", asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const campaign = await prisma.campaign.findUnique({ where: { campaign_id: req.params.id } });
   if (!campaign) { res.status(404).json({ message: "Campaign not found" }); return; }
 
@@ -237,7 +238,7 @@ adminCampaignRouter.get("/:id/submissions", async (req: Request, res: Response):
   });
 
   res.json({ submissions });
-});
+}));
 
 // ── PATCH /api/v1/dev-admin/campaigns/submissions/:subId ─────
 /**
@@ -249,7 +250,7 @@ adminCampaignRouter.get("/:id/submissions", async (req: Request, res: Response):
  *     security:
  *       - bearerAuth: []
  */
-adminCampaignRouter.patch("/submissions/:subId", async (req: Request, res: Response): Promise<void> => {
+adminCampaignRouter.patch("/submissions/:subId", asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const parsed = ReviewSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ message: "Validation error", errors: parsed.error.flatten() });
@@ -290,7 +291,7 @@ adminCampaignRouter.patch("/submissions/:subId", async (req: Request, res: Respo
   ]);
 
   res.json({ submission: updated });
-});
+}));
 
 // ═════════════════════════════════════════════════════════════
 // STUDENT ROUTES
@@ -308,7 +309,7 @@ studentCampaignRouter.use(requireAuth, requireActive, collegeSiloGuard);
  *     security:
  *       - bearerAuth: []
  */
-studentCampaignRouter.get("/", async (req: Request, res: Response): Promise<void> => {
+studentCampaignRouter.get("/", asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const now = new Date();
   const campaigns = await prisma.campaign.findMany({
     where: {
@@ -324,10 +325,10 @@ studentCampaignRouter.get("/", async (req: Request, res: Response): Promise<void
   });
 
   res.json({ campaigns });
-});
+}));
 
 // ── GET /api/v1/campaigns/:id ─────────────────────────────────
-studentCampaignRouter.get("/:id", async (req: Request, res: Response): Promise<void> => {
+studentCampaignRouter.get("/:id", asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const campaign = await prisma.campaign.findUnique({
     where:   { campaign_id: req.params.id },
     include: { college: { select: { name: true } }, _count: { select: { submissions: true } } },
@@ -344,7 +345,7 @@ studentCampaignRouter.get("/:id", async (req: Request, res: Response): Promise<v
   });
 
   res.json({ campaign, own_submission: ownSubmission });
-});
+}));
 
 // ── POST /api/v1/campaigns/:id/submit ────────────────────────
 /**
@@ -356,7 +357,7 @@ studentCampaignRouter.get("/:id", async (req: Request, res: Response): Promise<v
  *     security:
  *       - bearerAuth: []
  */
-studentCampaignRouter.post("/:id/submit", async (req: Request, res: Response): Promise<void> => {
+studentCampaignRouter.post("/:id/submit", asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const parsed = SubmitSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ message: "Validation error", errors: parsed.error.flatten() });
@@ -396,4 +397,8 @@ studentCampaignRouter.post("/:id/submit", async (req: Request, res: Response): P
   });
 
   res.status(201).json({ submission });
-});
+}));
+
+
+
+

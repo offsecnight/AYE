@@ -106,10 +106,19 @@ app.use((_req, res) => {
   res.status(404).json({ message: "Route not found" });
 });
 
-// ── Global error handler ──────────────────────────────────────
+// ── Global error handler (sync + async via next(err)) ─────────
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error("[Error]", err.message);
-  res.status(500).json({ message: "Internal server error" });
+  console.error("[Error]", err.stack ?? err.message);
+  if (res.headersSent) return;
+  res.status(500).json({ message: "Internal server error", detail: err.message });
+});
+
+// Catch unhandled promise rejections so the process doesn't die
+process.on("unhandledRejection", (reason) => {
+  console.error("[UnhandledRejection]", reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("[UncaughtException]", err);
 });
 
 // ── Start ──────────────────────────────────────────────────────
