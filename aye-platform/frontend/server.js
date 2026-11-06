@@ -14,12 +14,22 @@ const backendUrl = process.env.BACKEND_URL ?? "http://localhost:4000";
 const app    = next({ dev });
 const handle = app.getRequestHandler();
 
-// Proxy for socket.io — handles both HTTP polling and WS upgrades
+// Proxy for socket.io — handles both HTTP polling and WS upgrades.
+//
+// KEY FIX: Strip "Sec-WebSocket-Extensions" before forwarding the upgrade.
+// Without this, both the browser and the backend negotiate permessage-deflate
+// independently, and the proxy ends up double-decompressing frames which sets
+// the reserved bits and causes "One or more reserved bits are on" errors.
 const socketProxy = createProxyMiddleware({
-  target:      backendUrl,
+  target:       backendUrl,
   changeOrigin: true,
-  ws:          true,   // ← enables WebSocket proxying
-  logLevel:    "warn",
+  ws:           true,
+  on: {
+    // Strip compression extension header before the WS handshake reaches backend
+    proxyReqWs: (proxyReq) => {
+      proxyReq.removeHeader("sec-websocket-extensions");
+    },
+  },
 });
 
 app.prepare().then(() => {

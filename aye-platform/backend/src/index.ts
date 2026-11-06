@@ -86,11 +86,15 @@ app.use("/api/v1",             authRouter);       // /colleges + /auth/*
 app.use("/api/v1/experiences", experiencesRouter);
 app.use("/api/v1/chat",        chatRouter);
 app.use("/api/v1/public",      publicRouter);
+// Campaign admin MUST be mounted before the generic devAdmin router
+// so Express matches /dev-admin/campaigns/* before /dev-admin/*
+app.use("/api/v1/dev-admin/campaigns", adminCampaignRouter);
 app.use("/api/v1/dev-admin",   devAdminRouter);
-app.use("/api/v1/dev-admin/campaigns", adminCampaignRouter);  // admin campaign CRUD
 app.use("/api/v1/campaigns",   studentCampaignRouter);        // student campaign views/submit
-app.use("/api/v1/upload",      uploadRouter);                 // file upload
-app.use("/api/v1/files",       uploadRouter);                 // file download (same router, /files/:name)
+app.use("/api/v1/upload",      uploadRouter);                 // file upload (POST /upload)
+// File download reuses the same router but under /files prefix so
+// the /:storedName param handler is reached at GET /api/v1/files/:name
+app.use("/api/v1/files",       uploadRouter);
 
 // ── Health check ──────────────────────────────────────────────
 app.get("/health", (_req, res) => {
