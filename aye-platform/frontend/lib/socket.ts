@@ -19,14 +19,14 @@ export function getSocket(token: string): Socket {
 
   currentToken = token;
 
-  // ALWAYS connect to the same origin as the frontend (same host + port).
-  // next.config.js rewrites /socket.io/* → backend:4000 server-side.
-  // This works through ANY tunnel: serveo, ngrok, Tailscale, custom domain.
-  // The browser never needs to know about port 4000.
+  // If NEXT_PUBLIC_SOCKET_URL is set (Slate/cloud deploy), connect directly
+  // to the AppSail backend — Slate has no Node.js process to proxy WebSockets.
+  // In local dev with server.js running, leave it unset to use same-origin proxy.
   const origin =
-    typeof window !== "undefined"
+    process.env.NEXT_PUBLIC_SOCKET_URL ||
+    (typeof window !== "undefined"
       ? `${window.location.protocol}//${window.location.host}`
-      : "http://localhost:3000";
+      : "http://localhost:3000");
 
   socket = io(origin, {
     path:       "/socket.io",
