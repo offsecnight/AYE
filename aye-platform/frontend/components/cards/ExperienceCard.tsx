@@ -262,13 +262,20 @@ export function ExperienceCard({ experience: e, token, initialAyed = false, onAy
   const [loadJunk,  setLoadJnk] = useState(false);
   const [panel,     setPanel]   = useState<"proof" | "fix" | null>(null);
 
-  // Sync aye_count from parent (socket pushes new counts via the parent array).
-  // Only apply the prop update when not mid-request — otherwise the optimistic
-  // update would be overwritten by the socket echo of our own action.
+  // Sync aye_count from socket pushes (parent array updated by CampusWall socket listener).
+  // Use a ref to track whether this user has locally interacted so we don't
+  // clobber their own action with the echo of that same socket event.
+  const locallyInteracted = useRef(false);
+
   useEffect(() => {
-    if (!loadAye) {
-      setAye(e.aye_count);
+    // If the user just toggled, skip the first prop update (that's the echo
+    // of our own action coming back via socket). After that, accept updates
+    // from other users.
+    if (locallyInteracted.current) {
+      locallyInteracted.current = false;
+      return;
     }
+    setAye(e.aye_count);
   }, [e.aye_count]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isResolved  = e.status === "RESOLVED";
@@ -282,6 +289,9 @@ export function ExperienceCard({ experience: e, token, initialAyed = false, onAy
     // Optimistic update
     setAyeAct(!wasActive);
     setAye((c) => wasActive ? c - 1 : c + 1);
+    // Mark that we initiated this — so the socket echo of our own action
+    // doesn't overwrite the count we're about to get from the REST response
+    locallyInteracted.current = true;
     try {
       const res = await experiencesApi.aye(e.post_id, token) as { action: string; aye_count: number };
       // Use server's authoritative count

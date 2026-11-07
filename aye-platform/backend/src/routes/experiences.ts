@@ -200,8 +200,11 @@ router.post("/:id/aye", asyncHandler(async (req: Request, res: Response): Promis
   if (existing) {
     // Toggle off (un-AYE)
     await prisma.postInteraction.delete({ where: { interaction_id: existing.interaction_id } });
-    await prisma.experience.update({ where: { post_id }, data: { aye_count: { decrement: 1 } } });
-    finalCount = post.aye_count - 1;
+    const updated = await prisma.experience.update({
+      where: { post_id },
+      data: { aye_count: { decrement: 1 } },
+    });
+    finalCount = updated.aye_count;
     action = "removed";
   } else {
     // Add AYE
