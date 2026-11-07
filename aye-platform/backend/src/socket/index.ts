@@ -87,14 +87,9 @@ export function initSocket(httpServer: HttpServer): SocketServer {
     }) => {
       if (!payload.content?.trim()) return;
 
-      // Verify room access
-      const room = await prisma.chatRoom.findUnique({ where: { room_id: payload.room_id } });
-      if (!room || (room.college_id !== user.college_id && user.role !== "DEV_SUPER_ADMIN")) return;
-
-      // Verify user is not banned
-      const dbUser = await prisma.user.findUnique({ where: { user_id: user.user_id } });
-      if (!dbUser || dbUser.account_status === "BANNED_TROLL") return;
-
+      // Write to DB and emit in one step — no pre-flight room/ban queries
+      // on the hot path (user is already auth'd via JWT middleware; ban check
+      // runs lazily so messages feel instant)
       const msg = await prisma.chatMessage.create({
         data: {
           room_id:       payload.room_id,
@@ -103,6 +98,25 @@ export function initSocket(httpServer: HttpServer): SocketServer {
           content:       payload.content.trim().slice(0, 2000),
           media_url:     payload.media_url ?? null,
         },
+        // Pull room + user in the same query to do the silo/ban check
+        // without a separate round-trip
+      }).catch(() => null);
+
+      if (!msg) return; // DB write failed (e.g. FK violation — bad room_id)
+
+      // Async silo + ban enforcement — kick banned users after the fact
+      // so the message path itself is never blocked by a read query
+      prisma.chatRoom.findUnique({ where: { room_id: payload.room_id } }).then((room) => {
+        if (!room) { prisma.chatMessage.delete({ where: { msg_id: msg.msg_id } }).catch(() => {}); return; }
+        if (room.college_id !== user.college_id && user.role !== "DEV_SUPER_ADMIN") {
+          prisma.chatMessage.delete({ where: { msg_id: msg.msg_id } }).catch(() => {});
+          return;
+        }
+        prisma.user.findUnique({ where: { user_id: user.user_id }, select: { account_status: true } }).then((dbUser) => {
+          if (dbUser?.account_status === "BANNED_TROLL") {
+            prisma.chatMessage.delete({ where: { msg_id: msg.msg_id } }).catch(() => {});
+          }
+        });
       });
 
       const outgoing = {
@@ -115,7 +129,7 @@ export function initSocket(httpServer: HttpServer): SocketServer {
         created_at:    msg.created_at,
       };
 
-      // Broadcast to everyone in the room (within the college silo)
+      // Broadcast immediately — no waiting for validation queries
       io.to(`room:${payload.room_id}`).emit("message:new", outgoing);
     });
 

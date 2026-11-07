@@ -33,9 +33,10 @@ export function getSocket(token: string): Socket {
     transports:        ["polling"],
     upgrade:           false,
     withCredentials:   true,
-    reconnection:        true,
-    reconnectionDelay:   3000,
-    reconnectionAttempts: 20,
+    reconnection:          true,
+    reconnectionDelay:     100,   // retry almost immediately instead of 3s
+    reconnectionDelayMax:  3000,  // cap backoff at 3s after repeated failures
+    reconnectionAttempts:  20,
     timeout:    8000,
   });
 

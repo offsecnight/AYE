@@ -113,6 +113,7 @@ export function AyeLounge() {
   const [loadingRooms,setLoadRooms]  = useState(true);
   const [loadingMsgs, setLoadMsgs]   = useState(false);
   const [connected,   setConnected]  = useState(false);
+  const [connStatus,  setConnStatus] = useState<"connecting" | "live" | "reconnecting">("connecting");
   const [onlineCount, setOnlineCount]= useState(0);
 
   const bottomRef   = useRef<HTMLDivElement>(null);
@@ -169,11 +170,14 @@ export function AyeLounge() {
     socketRef.current = socket;
 
     // Connection state
-    const onConnect    = () => setConnected(true);
-    const onDisconnect = () => setConnected(false);
-    socket.on("connect",    onConnect);
-    socket.on("disconnect", onDisconnect);
-    setConnected(socket.connected);
+    const onConnect    = () => { setConnected(true);  setConnStatus("live"); };
+    const onDisconnect = () => { setConnected(false); setConnStatus("reconnecting"); };
+    const onReconnectAttempt = () => setConnStatus("reconnecting");
+    socket.on("connect",           onConnect);
+    socket.on("disconnect",        onDisconnect);
+    socket.on("reconnect_attempt", onReconnectAttempt);
+    // Set immediately from current state — no flash if already connected
+    if (socket.connected) { setConnected(true); setConnStatus("live"); }
 
     // Incoming messages — replace matching optimistic message or append
     const onMessage = (msg: ChatMessage) => {
@@ -203,9 +207,10 @@ export function AyeLounge() {
     socket.on("room:online", onOnline);
 
     return () => {
-      socket.off("connect",    onConnect);
-      socket.off("disconnect", onDisconnect);
-      socket.off("message:new", onMessage);
+      socket.off("connect",           onConnect);
+      socket.off("disconnect",        onDisconnect);
+      socket.off("reconnect_attempt", onReconnectAttempt);
+      socket.off("message:new",  onMessage);
       socket.off("room:online",  onOnline);
     };
   }, [user?.token]);
@@ -327,10 +332,10 @@ export function AyeLounge() {
                   <div className="flex items-center gap-1.5 mt-1">
                     <Circle
                       size={6}
-                      className={connected ? "text-emerald fill-emerald" : "text-danger fill-danger"}
+                      className={connStatus === "live" ? "text-emerald fill-emerald" : "text-danger fill-danger"}
                     />
                     <span className="font-mono text-[10px] text-acid/40 uppercase">
-                      {connected ? "CONNECTED" : "CONNECTING..."}
+                      {connStatus === "live" ? "CONNECTED" : connStatus === "reconnecting" ? "RECONNECTING..." : "CONNECTING..."}
                     </span>
                   </div>
                 </div>
@@ -437,11 +442,11 @@ export function AyeLounge() {
                   </div>
                   {/* Connection + online count */}
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    {connected
+                    {connStatus === "live"
                       ? <Wifi size={10} className="text-emerald" />
-                      : <WifiOff size={10} className="text-danger" />}
+                      : <WifiOff size={10} className="text-danger animate-pulse" />}
                     <span className="font-mono text-[10px] text-ink/40 uppercase">
-                      {connected ? "LIVE" : "RECONNECTING..."}
+                      {connStatus === "live" ? "LIVE" : connStatus === "reconnecting" ? "RECONNECTING..." : "CONNECTING..."}
                     </span>
                   </div>
                 </div>
