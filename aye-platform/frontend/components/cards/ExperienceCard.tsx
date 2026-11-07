@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   ThumbsUp, Flag, Plus, Wrench, MessageSquare, MapPin, Users,
   X, Upload, FileText, CheckCircle, AlertCircle,
@@ -260,6 +260,17 @@ export function ExperienceCard({ experience: e, token, onUpdate }: Props) {
   const [loadJunk,  setLoadJnk] = useState(false);
   const [panel,     setPanel]   = useState<"proof" | "fix" | null>(null);
 
+  // Sync aye_count from parent only when the post changes (not on every onUpdate refetch)
+  // This prevents the flip-flop: optimistic update stays until a different post loads
+  const prevPostId = useRef(e.post_id);
+  useEffect(() => {
+    if (e.post_id !== prevPostId.current) {
+      prevPostId.current = e.post_id;
+      setAye(e.aye_count);
+      setAyeAct(false);
+    }
+  }, [e.post_id, e.aye_count]);
+
   const isResolved  = e.status === "RESOLVED";
   const isTrending  = e.status === "TRENDING";
   const displayName = e.hide_handle ? "Verified Campus Ghost" : `@${e.ghost_handle}`;
@@ -268,15 +279,18 @@ export function ExperienceCard({ experience: e, token, onUpdate }: Props) {
     if (loadAye) return;
     setLoadAye(true);
     const wasActive = ayeActive;
+    // Optimistic update
     setAyeAct(!wasActive);
     setAye((c) => wasActive ? c - 1 : c + 1);
     try {
       const res = await experiencesApi.aye(e.post_id, token) as { action: string; aye_count: number };
+      // Use server's authoritative count
       setAye(res.aye_count);
       setAyeAct(res.action === "added");
       if (res.action === "added") playAyeSound();
-      onUpdate?.();
+      // Don't call onUpdate() here — it remounts the card and resets local state
     } catch {
+      // Rollback on error
       setAyeAct(wasActive);
       setAye((c) => wasActive ? c + 1 : c - 1);
     } finally {

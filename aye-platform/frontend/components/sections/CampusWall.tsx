@@ -47,6 +47,15 @@ export function CampusWall() {
     fetchExperiences();
   }, [user, fetchExperiences, router]);
 
+  // Auto-refresh every 15 seconds so new experiences appear for all users
+  useEffect(() => {
+    if (!user?.token) return;
+    const interval = setInterval(() => {
+      fetchExperiences();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [user?.token, fetchExperiences]);
+
   if (!user) return null;
 
   return (
