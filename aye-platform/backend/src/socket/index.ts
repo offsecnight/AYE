@@ -3,6 +3,7 @@ import { Server as SocketServer, Socket } from "socket.io";
 import jwt from "jsonwebtoken";
 import { PrismaClient } from "@prisma/client";
 import { JWTPayload } from "../types";
+import { setIo } from "./io-instance";
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET ?? "change-me";
@@ -128,6 +129,9 @@ export function initSocket(httpServer: HttpServer): SocketServer {
       console.log(`[Socket] ${user.ghost_handle} disconnected`);
     });
   });
+
+  // Register the io instance so routes can emit events
+  setIo(io);
 
   return io;
 }

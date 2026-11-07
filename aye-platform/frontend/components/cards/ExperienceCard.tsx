@@ -262,18 +262,14 @@ export function ExperienceCard({ experience: e, token, initialAyed = false, onAy
   const [loadJunk,  setLoadJnk] = useState(false);
   const [panel,     setPanel]   = useState<"proof" | "fix" | null>(null);
 
-  // Sync aye_count from parent only when the post changes (not on every onUpdate refetch)
-  // This prevents the flip-flop: optimistic update stays until a different post loads
-  const prevPostId = useRef(e.post_id);
+  // Sync aye_count from parent (socket pushes new counts via the parent array).
+  // Only apply the prop update when not mid-request — otherwise the optimistic
+  // update would be overwritten by the socket echo of our own action.
   useEffect(() => {
-    if (e.post_id !== prevPostId.current) {
-      prevPostId.current = e.post_id;
+    if (!loadAye) {
       setAye(e.aye_count);
-      setAyeAct(initialAyed);
     }
-    // On background refresh, only update count if user hasn't interacted
-    // (ayeActive matches initialAyed means no local interaction yet)
-  }, [e.post_id, e.aye_count, initialAyed]);
+  }, [e.aye_count]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isResolved  = e.status === "RESOLVED";
   const isTrending  = e.status === "TRENDING";

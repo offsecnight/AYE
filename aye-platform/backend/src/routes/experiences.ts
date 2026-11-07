@@ -1,5 +1,5 @@
-import { Router, Request, Response, NextFunction } from "express";
 import express from "express";
+import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { requireAuth } from "../middleware/auth";
@@ -8,8 +8,9 @@ import { collegeSiloGuard } from "../middleware/collegeSilo";
 import { runAntiTrollCheck } from "../services/antiTroll";
 import { checkTrendingEscalation } from "../services/trending";
 import { recalculateCollegeGrade } from "../services/grading";
+import { getIo } from "../socket/io-instance";
 
-const router = Router();
+const router = express.Router();
 const prisma = new PrismaClient();
 
 // All experience routes require auth + active account + silo guard
@@ -183,34 +184,44 @@ router.get("/:id", asyncHandler(async (req: Request, res: Response): Promise<voi
 router.post("/:id/aye", asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const user_id = req.user!.user_id;
   const post_id = req.params.id;
+  const college_id = req.user!.college_id;
 
   const post = await prisma.experience.findUnique({ where: { post_id } });
   if (!post) { res.status(404).json({ message: "Not found" }); return; }
-  if (post.college_id !== req.user!.college_id) { res.status(403).json({ message: "Access denied" }); return; }
+  if (post.college_id !== college_id) { res.status(403).json({ message: "Access denied" }); return; }
 
   const existing = await prisma.postInteraction.findUnique({
     where: { unique_vote_per_user: { post_id, user_id, type: "AYE_VOTE" } },
   });
 
+  let finalCount: number;
+  let action: "added" | "removed";
+
   if (existing) {
-    // Toggle off
+    // Toggle off (un-AYE)
     await prisma.postInteraction.delete({ where: { interaction_id: existing.interaction_id } });
     await prisma.experience.update({ where: { post_id }, data: { aye_count: { decrement: 1 } } });
-    res.json({ action: "removed", aye_count: post.aye_count - 1 });
-    return;
+    finalCount = post.aye_count - 1;
+    action = "removed";
+  } else {
+    // Add AYE
+    await prisma.postInteraction.create({ data: { post_id, user_id, type: "AYE_VOTE" } });
+    const updated = await prisma.experience.update({
+      where: { post_id },
+      data: { aye_count: { increment: 1 } },
+    });
+    finalCount = updated.aye_count;
+    action = "added";
+    await checkTrendingEscalation(post_id);
   }
 
-  // Add AYE
-  await prisma.postInteraction.create({ data: { post_id, user_id, type: "AYE_VOTE" } });
-  const updated = await prisma.experience.update({
-    where: { post_id },
-    data: { aye_count: { increment: 1 } },
-  });
+  // Broadcast real-time AYE count to all users in this college
+  const io = getIo();
+  if (io) {
+    io.to(`college:${college_id}`).emit("aye:update", { post_id, aye_count: finalCount });
+  }
 
-  // Check trending escalation
-  await checkTrendingEscalation(post_id);
-
-  res.json({ action: "added", aye_count: updated.aye_count });
+  res.json({ action, aye_count: finalCount });
 }));
 
 // ── POST /api/v1/experiences/:id/flag-junk ────────────────────

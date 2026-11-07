@@ -8,6 +8,7 @@ import { DropExperienceModal }  from "@/components/modals/DropExperienceModal";
 import { CampaignBoard }        from "@/components/sections/CampaignBoard";
 import { experiencesApi, ExperiencePublic } from "@/lib/api";
 import { useAuthStore }         from "@/lib/store";
+import { getSocket }            from "@/lib/socket";
 import { cn } from "@/lib/utils";
 
 const STATUS_FILTERS   = ["ALL", "UNRESOLVED", "TRENDING", "FIX_PROPOSED", "RESOLVED"];
@@ -25,15 +26,16 @@ export function CampusWall() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [error,          setError]       = useState<string | null>(null);
 
-  // Track which post_ids the user has AYE'd — survives background refreshes
+  // Track which post_ids the user has AYE'd — survives re-renders
   const [ayedPosts, setAyedPosts] = useState<Set<string>>(new Set());
 
-  // Keep current filter/sort values accessible inside interval without recreating it
+  // Keep current filters accessible in stable fetch fn
   const filtersRef = useRef({ token: user?.token, statusFilter, categoryFilter, sort });
   useEffect(() => {
     filtersRef.current = { token: user?.token, statusFilter, categoryFilter, sort };
   }, [user?.token, statusFilter, categoryFilter, sort]);
 
+  // Stable fetch — reads from ref, never recreated
   const fetchExperiences = useCallback(async (silent = false) => {
     const { token, statusFilter: sf, categoryFilter: cf, sort: so } = filtersRef.current;
     if (!token) return;
@@ -44,41 +46,39 @@ export function CampusWall() {
       if (sf !== "ALL") params.status = sf;
       if (cf)           params.category = cf;
       const res = await experiencesApi.list(params, token) as { experiences: ExperiencePublic[] };
-      // Stable update: only replace array if content actually changed (avoids unnecessary re-renders)
-      setExperiences((prev) => {
-        const incoming = res.experiences;
-        if (
-          prev.length === incoming.length &&
-          prev.every((p, i) =>
-            p.post_id === incoming[i].post_id &&
-            p.aye_count === incoming[i].aye_count &&
-            p.status === incoming[i].status
-          )
-        ) {
-          return prev; // nothing changed — return same reference, no re-render
-        }
-        return incoming;
-      });
+      setExperiences(res.experiences);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load experiences");
     } finally {
       setInitialLoading(false);
     }
-  }, []); // stable — no deps, reads from ref
+  }, []);
 
-  // Fetch on filter/sort change
+  // Fetch on filter/sort change (explicit re-fetch only)
   useEffect(() => {
     if (!user) { router.push("/auth"); return; }
     fetchExperiences(false);
   }, [user, router, fetchExperiences, statusFilter, categoryFilter, sort]);
 
-  // Silent background poll every 20s — stable interval, never recreated
+  // Real-time AYE updates via socket — NO polling
   useEffect(() => {
-    const interval = setInterval(() => {
-      fetchExperiences(true);
-    }, 20000);
-    return () => clearInterval(interval);
-  }, [fetchExperiences]); // fetchExperiences is stable (no deps)
+    if (!user?.token) return;
+    const socket = getSocket(user.token);
+
+    const onAyeUpdate = (data: { post_id: string; aye_count: number }) => {
+      // Update the count in-place without remounting the card
+      setExperiences((prev) =>
+        prev.map((exp) =>
+          exp.post_id === data.post_id
+            ? { ...exp, aye_count: data.aye_count }
+            : exp
+        )
+      );
+    };
+
+    socket.on("aye:update", onAyeUpdate);
+    return () => { socket.off("aye:update", onAyeUpdate); };
+  }, [user?.token]);
 
   const handleAyeToggle = useCallback((postId: string, nowAyed: boolean) => {
     setAyedPosts((prev) => {
@@ -110,10 +110,7 @@ export function CampusWall() {
           >
             <RefreshCw size={14} className={initialLoading ? "animate-spin" : ""} />
           </button>
-          <button
-            className="btn-primary"
-            onClick={() => setDrop(true)}
-          >
+          <button className="btn-primary" onClick={() => setDrop(true)}>
             <Plus size={16} />
             <span className="hidden xs:inline">DROP </span>EXPERIENCE
           </button>
@@ -127,10 +124,7 @@ export function CampusWall() {
             <button
               key={s}
               onClick={() => setStatus(s)}
-              className={cn(
-                "chip-btn",
-                statusFilter === s ? "bg-ink text-acid" : "bg-paper text-ink"
-              )}
+              className={cn("chip-btn", statusFilter === s ? "bg-ink text-acid" : "bg-paper text-ink")}
             >
               {s.replace("_", " ")}
             </button>
@@ -176,7 +170,7 @@ export function CampusWall() {
         </div>
       )}
 
-      {/* LOADING — only on first fetch */}
+      {/* LOADING — first fetch only */}
       {initialLoading && (
         <div className="flex flex-col gap-5">
           {[1, 2, 3].map((i) => (
@@ -185,7 +179,7 @@ export function CampusWall() {
         </div>
       )}
 
-      {/* FEED — always mounted once loaded, never unmounts on bg poll */}
+      {/* FEED */}
       {!initialLoading && (
         <div className="flex flex-col gap-5">
           {experiences.length === 0 ? (
