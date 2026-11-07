@@ -262,17 +262,25 @@ export function ExperienceCard({ experience: e, token, initialAyed = false, onAy
   const [loadJunk,  setLoadJnk] = useState(false);
   const [panel,     setPanel]   = useState<"proof" | "fix" | null>(null);
 
-  // Sync aye_count from socket pushes (parent array updated by CampusWall socket listener).
-  // Use a ref to track whether this user has locally interacted so we don't
-  // clobber their own action with the echo of that same socket event.
-  const locallyInteracted = useRef(false);
+  // Sync ayeActive when the parent seeds the ayedPosts set from the server
+  // (happens once after first fetch — cards are already mounted at that point)
+  useEffect(() => {
+    if (!loadAye) setAyeAct(initialAyed);
+  }, [initialAyed]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // After we get the REST response, we store the authoritative count here.
+  // The socket echo of our own action arrives shortly after and would try
+  // to overwrite our local state via the useEffect below — we block it by
+  // comparing against this ref. Any value that doesn't match is from
+  // another user and should be applied.
+  const ownAyeCount = useRef<number | null>(null);
 
   useEffect(() => {
-    // If the user just toggled, skip the first prop update (that's the echo
-    // of our own action coming back via socket). After that, accept updates
-    // from other users.
-    if (locallyInteracted.current) {
-      locallyInteracted.current = false;
+    // Block the echo of our own action (the socket re-broadcasts to us too).
+    // If the incoming prop matches what we already set via the REST response,
+    // skip it. Any different value is a genuine update from another user.
+    if (ownAyeCount.current !== null && e.aye_count === ownAyeCount.current) {
+      ownAyeCount.current = null; // consume the skip — next change applies normally
       return;
     }
     setAye(e.aye_count);
@@ -289,18 +297,16 @@ export function ExperienceCard({ experience: e, token, initialAyed = false, onAy
     // Optimistic update
     setAyeAct(!wasActive);
     setAye((c) => wasActive ? c - 1 : c + 1);
-    // Mark that we initiated this — so the socket echo of our own action
-    // doesn't overwrite the count we're about to get from the REST response
-    locallyInteracted.current = true;
     try {
       const res = await experiencesApi.aye(e.post_id, token) as { action: string; aye_count: number };
-      // Use server's authoritative count
-      setAye(res.aye_count);
       const nowAyed = res.action === "added";
+      // Store the authoritative count so the socket echo of this action
+      // is ignored by the useEffect (the echo carries the same number)
+      ownAyeCount.current = res.aye_count;
+      setAye(res.aye_count);
       setAyeAct(nowAyed);
       onAyeToggle?.(e.post_id, nowAyed);
       if (nowAyed) playAyeSound();
-      // Don't call onUpdate() here — it remounts the card and resets local state
     } catch {
       // Rollback on error
       setAyeAct(wasActive);

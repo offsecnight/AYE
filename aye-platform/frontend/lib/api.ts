@@ -125,4 +125,5 @@ export interface ExperiencePublic {
   status: string;
   created_at: string;
   resolved_at?: string;
+  viewer_has_ayed?: boolean;
 }

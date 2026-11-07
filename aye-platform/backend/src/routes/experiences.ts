@@ -75,19 +75,29 @@ router.get("/", asyncHandler(async (req: Request, res: Response): Promise<void> 
     sort === "oldest_unresolved" ? { created_at: "asc" as const }  :
                                    { aye_count:  "desc" as const };
 
-  const experiences = await prisma.experience.findMany({
-    where,
-    orderBy,
-    include: {
-      author: { select: { ghost_handle: true, trust_score: true } },
-    },
-    take: 50,
-  });
+  const [experiences, myVotes] = await Promise.all([
+    prisma.experience.findMany({
+      where,
+      orderBy,
+      include: {
+        author: { select: { ghost_handle: true, trust_score: true } },
+      },
+      take: 50,
+    }),
+    // Fetch all AYE_VOTEs by this user in one query
+    prisma.postInteraction.findMany({
+      where: { user_id: req.user!.user_id, type: "AYE_VOTE" },
+      select: { post_id: true },
+    }),
+  ]);
 
-  // Mask author handle if hide_handle is true
+  const ayedSet = new Set(myVotes.map((v) => v.post_id));
+
+  // Mask author handle if hide_handle is true, attach viewer_has_ayed
   const masked = experiences.map((e) => ({
     ...e,
-    ghost_handle: e.hide_handle ? "Verified Campus Ghost" : e.author.ghost_handle,
+    ghost_handle:     e.hide_handle ? "Verified Campus Ghost" : e.author.ghost_handle,
+    viewer_has_ayed:  ayedSet.has(e.post_id),
     author: undefined,
   }));
 
@@ -118,6 +128,17 @@ router.post("/", asyncHandler(async (req: Request, res: Response): Promise<void>
       college_id: user.college_id,
       author_id:  user.user_id,
       aye_count:  1, // author implicitly AYEs their own post
+    },
+  });
+
+  // Create the AYE_VOTE interaction record for the author so the toggle
+  // logic knows they've already AYEd (otherwise un-AYE brings count to 1
+  // instead of 0 because the implicit AYE has no interaction record)
+  await prisma.postInteraction.create({
+    data: {
+      post_id: experience.post_id,
+      user_id: user.user_id,
+      type:    "AYE_VOTE",
     },
   });
 

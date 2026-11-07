@@ -47,6 +47,10 @@ export function CampusWall() {
       if (cf)           params.category = cf;
       const res = await experiencesApi.list(params, token) as { experiences: ExperiencePublic[] };
       setExperiences(res.experiences);
+      // Seed ayedPosts from server data so author's own posts show as AYEd
+      setAyedPosts(new Set(
+        res.experiences.filter((e) => e.viewer_has_ayed).map((e) => e.post_id)
+      ));
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load experiences");
     } finally {
