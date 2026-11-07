@@ -221,7 +221,12 @@ router.post("/:id/aye", asyncHandler(async (req: Request, res: Response): Promis
   // Broadcast real-time AYE count to all users in this college
   const io = getIo();
   if (io) {
-    io.to(`college:${college_id}`).emit("aye:update", { post_id, aye_count: finalCount });
+    const room = `college:${college_id}`;
+    const sockets = await io.in(room).fetchSockets();
+    console.log(`[AYE] emit aye:update → room=${room} post=${post_id} count=${finalCount} action=${action} sockets=${sockets.length}`);
+    io.to(room).emit("aye:update", { post_id, aye_count: finalCount });
+  } else {
+    console.warn("[AYE] io not available — socket not initialized");
   }
 
   res.json({ action, aye_count: finalCount });

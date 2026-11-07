@@ -66,6 +66,7 @@ export function CampusWall() {
     const socket = getSocket(user.token);
 
     const onAyeUpdate = (data: { post_id: string; aye_count: number }) => {
+      console.log("[AYE Socket] aye:update received:", data);
       // Update the count in-place without remounting the card
       setExperiences((prev) =>
         prev.map((exp) =>

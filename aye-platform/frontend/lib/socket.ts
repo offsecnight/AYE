@@ -43,7 +43,7 @@ export function getSocket(token: string): Socket {
   });
 
   socket.on("connect", () =>
-    console.log("[AYE Socket] connected →", origin)
+    console.log("[AYE Socket] connected →", origin, "| id:", socket?.id)
   );
   socket.on("connect_error", (err) =>
     console.warn("[AYE Socket] error:", err.message)
