@@ -36,14 +36,13 @@ export function getSocket(token: string): Socket {
   socket = io(origin, {
     path:       "/socket.io",
     auth:       { token },
-    // Cloud (AppSail): polling only — AppSail proxy drops WSS upgrades.
-    // Local dev: try websocket first, fall back to polling.
     transports: isCloud ? ["polling"] : ["websocket", "polling"],
-    upgrade:    !isCloud, // don't attempt upgrade on cloud
+    upgrade:    false, // never upgrade — AppSail proxy drops WSS
+    // Short intervals to match server config — keeps requests within proxy timeout
     reconnection:        true,
-    reconnectionDelay:   2000,
+    reconnectionDelay:   3000,
     reconnectionAttempts: 20,
-    timeout:    15000,
+    timeout:    8000,
   });
 
   socket.on("connect", () =>
