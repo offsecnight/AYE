@@ -10,12 +10,12 @@ const JWT_SECRET = process.env.JWT_SECRET ?? "change-me";
 
 export function initSocket(httpServer: HttpServer): SocketServer {
   const io = new SocketServer(httpServer, {
-    // Accept both WebSocket and polling — browser connects directly to
-    // AppSail backend, so WebSocket upgrade works without proxy interference.
-    transports:      ["websocket", "polling"],
-    allowUpgrades:   true,
-    pingInterval:    25000,
-    pingTimeout:     10000,
+    // Polling-only — AppSail's reverse proxy drops WebSocket upgrades.
+    // Short ping interval keeps the polling loop tight so events feel instant.
+    transports:      ["polling"],
+    allowUpgrades:   false,
+    pingInterval:    4000,   // client polls every ~4s for heartbeat
+    pingTimeout:     8000,
     httpCompression: false,
     maxHttpBufferSize: 1e6,
     cors: {

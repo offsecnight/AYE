@@ -1,12 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Bake the AppSail backend URL into the client bundle at build time.
-  // The browser connects to it directly for WebSocket (true real-time) —
-  // the Next.js rewrite proxy is HTTP-only and can't tunnel WS upgrades.
-  env: {
-    NEXT_PUBLIC_SOCKET_URL: "https://aye-backend-50047496537.development.catalystappsail.in",
-  },
-
   images: {
     remotePatterns: [
       { protocol: "http",  hostname: "localhost" },
