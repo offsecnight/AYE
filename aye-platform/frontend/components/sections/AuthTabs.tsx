@@ -26,23 +26,16 @@ export function AuthTabs() {
     tabs.some((t) => t.id === initialTab) ? initialTab : "login"
   );
 
-  // Redirect away if already authenticated
+  // ALL hooks must run unconditionally before any early return.
+  // Redirect away if already authenticated — useEffect so it
+  // never fires during the render phase (avoids the HotReload warning).
   useEffect(() => {
     if (!user) return;
     const dest = user.role === "DEV_SUPER_ADMIN" ? "/dev-admin" : "/campus/wall";
     router.replace(dest);
   }, [user, router]);
 
-  // While redirect is in flight, render nothing
-  if (user) return null;
-
-  // Keep URL in sync with tab
-  function switchTab(id: Tab) {
-    setActive(id);
-    router.replace(`/auth?tab=${id}`, { scroll: false });
-  }
-
-  // Reflect URL changes (e.g. browser back/forward)
+  // Reflect URL changes (browser back/forward)
   useEffect(() => {
     const t = searchParams.get("tab") as Tab;
     if (t && tabs.some((x) => x.id === t) && t !== active) {
@@ -50,6 +43,14 @@ export function AuthTabs() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
+
+  // Early return AFTER all hooks have been called
+  if (user) return null;
+
+  function switchTab(id: Tab) {
+    setActive(id);
+    router.replace(`/auth?tab=${id}`, { scroll: false });
+  }
 
   return (
     <div>

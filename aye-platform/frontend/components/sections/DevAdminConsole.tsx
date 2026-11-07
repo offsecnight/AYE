@@ -1,8 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter }    from "next/navigation";
-import { Plus, Ban, Zap, AlertTriangle, AlertCircle, Trash2, MessageSquare, Megaphone, CheckCircle, XCircle, Clock, Upload, FileText } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+  Plus, Ban, Zap, AlertTriangle, AlertCircle, Trash2, MessageSquare,
+  Megaphone, CheckCircle, XCircle, Clock, Upload, FileText,
+} from "lucide-react";
 import { BruteCard }    from "@/components/ui/BruteCard";
 import { GradeDisplay } from "@/components/ui/GradeDisplay";
 import { useAuthStore } from "@/lib/store";
@@ -13,23 +16,17 @@ type AdminTab = "stats" | "colleges" | "rooms" | "seed-otp" | "junk" | "bans" | 
 const TABS: { id: AdminTab; label: string }[] = [
   { id: "stats",     label: "STATS" },
   { id: "colleges",  label: "COLLEGES" },
-  { id: "rooms",    label: "ROOMS" },
-  { id: "seed-otp", label: "SEED OTP" },
-  { id: "junk",     label: "JUNK QUEUE" },
-  { id: "bans",     label: "HW BANS" },
-  { id: "campaigns",label: "CAMPAIGNS" },
-  { id: "issues",   label: "ISSUES" },
+  { id: "rooms",     label: "ROOMS" },
+  { id: "seed-otp",  label: "SEED OTP" },
+  { id: "junk",      label: "JUNK QUEUE" },
+  { id: "bans",      label: "HW BANS" },
+  { id: "campaigns", label: "CAMPAIGNS" },
+  { id: "issues",    label: "ISSUES" },
 ];
 
-// All client-side calls go through same-origin proxy → backend
 const API_BASE = "/api/proxy";
 
-async function apiCall(
-  path: string,
-  method = "GET",
-  body?: object,
-  token?: string
-) {
+async function apiCall(path: string, method = "GET", body?: object, token?: string) {
   const res = await fetch(`${API_BASE}${path}`, {
     method,
     credentials: "include",
@@ -41,12 +38,12 @@ async function apiCall(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: res.statusText }));
-    throw new Error(err.message ?? "API error");
+    throw new Error((err as { message?: string }).message ?? "API error");
   }
   return res.json();
 }
 
-// ── Types ────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────
 
 interface Stats {
   colleges: number;
@@ -56,16 +53,16 @@ interface Stats {
 }
 
 interface College {
-  college_id:        string;
-  name:              string;
-  slug:              string;
-  city:              string;
-  reality_grade:     string;
-  resolution_rate:   number | null;
-  total_experiences: number;
-  total_resolved:    number;
-  gps_lat:           number | null;
-  gps_lng:           number | null;
+  college_id:             string;
+  name:                   string;
+  slug:                   string;
+  city:                   string;
+  reality_grade:          string;
+  resolution_rate:        number | null;
+  total_experiences:      number;
+  total_resolved:         number;
+  gps_lat:                number | null;
+  gps_lng:                number | null;
   geofence_radius_meters: number;
 }
 
@@ -80,7 +77,7 @@ interface JunkPost {
   created_at:                string;
 }
 
-// ── Rooms Panel ──────────────────────────────────────────────
+// ── Rooms Panel ───────────────────────────────────────────────
 
 interface Room {
   room_id:    string;
@@ -93,21 +90,21 @@ interface Room {
 }
 
 function RoomsPanel({ token, colleges }: { token: string; colleges: College[] }) {
-  const [rooms,     setRooms]   = useState<Room[]>([]);
-  const [loading,   setLoad]    = useState(true);
-  const [error,     setErr]     = useState<string | null>(null);
-  const [adding,    setAdding]  = useState(false);
-  const [deleting,  setDeleting]= useState<string | null>(null);
-  const [newRoom,   setNewRoom] = useState({
+  const [rooms,    setRooms]   = useState<Room[]>([]);
+  const [loading,  setLoad]    = useState(true);
+  const [error,    setErr]     = useState<string | null>(null);
+  const [adding,   setAdding]  = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [newRoom,  setNewRoom] = useState({
     college_id: "",
-    room_type:  "GLOBAL" as "GLOBAL" | "BRANCH" | "ISSUE_ROOM",
-    name:       "",
+    room_type: "GLOBAL" as "GLOBAL" | "BRANCH" | "ISSUE_ROOM",
+    name: "",
   });
 
   const ROOM_TYPES = [
-    { value: "GLOBAL",     label: "# GLOBAL — All students" },
-    { value: "BRANCH",     label: "# BRANCH — Specific course/branch" },
-    { value: "ISSUE_ROOM", label: "⚡ ISSUE ROOM — Linked to a post" },
+    { value: "GLOBAL",     label: "# GLOBAL - All students" },
+    { value: "BRANCH",     label: "# BRANCH - Specific course/branch" },
+    { value: "ISSUE_ROOM", label: "! ISSUE ROOM - Linked to a post" },
   ];
 
   function loadRooms() {
@@ -119,7 +116,7 @@ function RoomsPanel({ token, colleges }: { token: string; colleges: College[] })
       .finally(() => setLoad(false));
   }
 
-  useEffect(() => { loadRooms(); }, [token]);
+  useEffect(() => { loadRooms(); }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function createRoom(e: React.FormEvent) {
     e.preventDefault();
@@ -151,19 +148,12 @@ function RoomsPanel({ token, colleges }: { token: string; colleges: College[] })
     }
   }
 
-  const roomTypeIcon = (t: string) =>
-    t === "ISSUE_ROOM" ? "⚡" : t === "BRANCH" ? "#" : "#";
-
-  const roomTypeColor = (t: string) =>
-    t === "ISSUE_ROOM" ? "badge-amber" : t === "BRANCH" ? "badge-acid" : "badge badge-outline";
-
   return (
     <div>
       <div className="flex items-center justify-between mb-4 gap-3">
         <h2 className="font-mono font-bold text-sm uppercase">CHAT ROOMS</h2>
         <button className="btn-primary" onClick={() => setAdding((v) => !v)}>
-          <Plus size={14} />
-          CREATE ROOM
+          <Plus size={14} />CREATE ROOM
         </button>
       </div>
 
@@ -173,98 +163,51 @@ function RoomsPanel({ token, colleges }: { token: string; colleges: College[] })
         </div>
       )}
 
-      {/* CREATE ROOM FORM */}
       {adding && (
         <BruteCard className="p-5 mb-5" accent="acid">
           <h3 className="font-mono font-bold text-sm uppercase mb-4 flex items-center gap-2">
             <MessageSquare size={14} /> NEW CHAT ROOM
           </h3>
           <form onSubmit={createRoom} className="flex flex-col gap-4">
-            {/* College */}
             <div>
-              <label className="font-mono text-[10px] uppercase tracking-widest text-ink/50 block mb-1">
-                COLLEGE *
-              </label>
-              <select
-                className="brute-input"
-                value={newRoom.college_id}
-                onChange={(e) => setNewRoom((r) => ({ ...r, college_id: e.target.value }))}
-                required
-              >
+              <label className="font-mono text-[10px] uppercase tracking-widest text-ink/50 block mb-1">COLLEGE *</label>
+              <select className="brute-input" value={newRoom.college_id}
+                onChange={(e) => setNewRoom((r) => ({ ...r, college_id: e.target.value }))} required>
                 <option value="">Select college...</option>
-                {colleges.map((c) => (
-                  <option key={c.college_id} value={c.college_id}>{c.name}</option>
-                ))}
+                {colleges.map((c) => <option key={c.college_id} value={c.college_id}>{c.name}</option>)}
               </select>
             </div>
-
-            {/* Room type */}
             <div>
-              <label className="font-mono text-[10px] uppercase tracking-widest text-ink/50 block mb-1">
-                ROOM TYPE *
-              </label>
+              <label className="font-mono text-[10px] uppercase tracking-widest text-ink/50 block mb-1">ROOM TYPE *</label>
               <div className="flex flex-col gap-2">
                 {ROOM_TYPES.map((t) => (
-                  <button
-                    key={t.value}
-                    type="button"
+                  <button key={t.value} type="button"
                     onClick={() => setNewRoom((r) => ({ ...r, room_type: t.value as "GLOBAL" | "BRANCH" | "ISSUE_ROOM" }))}
-                    className={cn(
-                      "text-left px-4 py-3 border-2 border-ink font-mono text-xs font-bold uppercase transition-colors min-h-[48px]",
-                      newRoom.room_type === t.value ? "bg-ink text-acid" : "bg-white text-ink"
-                    )}
-                  >
+                    className={cn("text-left px-4 py-3 border-2 border-ink font-mono text-xs font-bold uppercase transition-colors min-h-[48px]",
+                      newRoom.room_type === t.value ? "bg-ink text-acid" : "bg-white text-ink")}>
                     {t.label}
                   </button>
                 ))}
               </div>
             </div>
-
-            {/* Room name */}
             <div>
-              <label className="font-mono text-[10px] uppercase tracking-widest text-ink/50 block mb-1">
-                ROOM NAME *
-              </label>
-              <input
-                className="brute-input"
-                placeholder={
-                  newRoom.room_type === "BRANCH"     ? "# bca-cyber-2026" :
-                  newRoom.room_type === "ISSUE_ROOM" ? "⚡ wifi-outage-oct" :
-                  "# campus-general"
-                }
-                value={newRoom.name}
-                onChange={(e) => setNewRoom((r) => ({ ...r, name: e.target.value }))}
-                required
-              />
+              <label className="font-mono text-[10px] uppercase tracking-widest text-ink/50 block mb-1">ROOM NAME *</label>
+              <input className="brute-input" placeholder="# campus-general"
+                value={newRoom.name} onChange={(e) => setNewRoom((r) => ({ ...r, name: e.target.value }))} required />
             </div>
-
             <div className="flex gap-3">
-              <button type="submit" className="btn-primary">
-                <Plus size={14} />
-                CREATE ROOM
-              </button>
-              <button type="button" className="btn-secondary" onClick={() => setAdding(false)}>
-                CANCEL
-              </button>
+              <button type="submit" className="btn-primary"><Plus size={14} />CREATE ROOM</button>
+              <button type="button" className="btn-secondary" onClick={() => setAdding(false)}>CANCEL</button>
             </div>
           </form>
         </BruteCard>
       )}
 
-      {/* ROOMS LIST */}
       {loading ? (
-        <div className="flex flex-col gap-3">
-          {[1,2,3].map((i) => <div key={i} className="brute-card h-16 animate-pulse" />)}
-        </div>
+        <div className="flex flex-col gap-3">{[1,2,3].map((i) => <div key={i} className="brute-card h-16 animate-pulse" />)}</div>
       ) : rooms.length === 0 ? (
         <BruteCard className="p-10 text-center">
-          <p className="font-mono text-sm text-ink/40 uppercase tracking-widest mb-3">
-            NO ROOMS YET
-          </p>
-          <p className="font-mono text-xs text-ink/30 uppercase">
-            Rooms are auto-created when a college is added (GLOBAL) or when a post hits 25 AYEs (ISSUE ROOM).
-            Use CREATE ROOM to add manual rooms.
-          </p>
+          <p className="font-mono text-sm text-ink/40 uppercase tracking-widest">NO ROOMS YET</p>
         </BruteCard>
       ) : (
         <div className="border-3 border-ink shadow-brutal overflow-x-auto">
@@ -272,38 +215,21 @@ function RoomsPanel({ token, colleges }: { token: string; colleges: College[] })
             <thead className="bg-ink text-acid">
               <tr>
                 {["NAME", "TYPE", "COLLEGE", "MESSAGES", ""].map((h, i) => (
-                  <th key={i} className="px-4 py-3 text-left font-mono text-xs uppercase tracking-widest border-r-2 border-acid/20 last:border-r-0" scope="col">
-                    {h}
-                  </th>
+                  <th key={i} className="px-4 py-3 text-left font-mono text-xs uppercase tracking-widest border-r-2 border-acid/20 last:border-r-0" scope="col">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {rooms.map((r) => (
                 <tr key={r.room_id} className="border-t-2 border-ink hover:bg-acid/5">
-                  <td className="px-4 py-3 font-mono text-xs font-bold">
-                    {roomTypeIcon(r.room_type)} {r.name.replace(/^[#⚡]\s?/, "")}
-                  </td>
+                  <td className="px-4 py-3 font-mono text-xs font-bold">{r.name}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{r.room_type.replace("_", " ")}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-ink/60 truncate max-w-[160px]">{r.college.name}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{r._count.chat_messages}</td>
                   <td className="px-4 py-3">
-                    <span className={`badge ${roomTypeColor(r.room_type)}`}>
-                      {r.room_type.replace("_", " ")}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 font-mono text-xs text-ink/60 truncate max-w-[160px]">
-                    {r.college.name}
-                  </td>
-                  <td className="px-4 py-3 font-mono text-xs">
-                    {r._count.chat_messages}
-                  </td>
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={() => deleteRoom(r.room_id, r.name)}
-                      disabled={deleting === r.room_id}
-                      className="flex items-center gap-1 px-2 py-1.5 border-2 border-ink font-mono text-[10px] uppercase hover:bg-danger hover:text-white transition-colors min-h-[36px]"
-                      aria-label="Delete room"
-                    >
-                      <Trash2 size={10} />
-                      {deleting === r.room_id ? "..." : "DELETE"}
+                    <button onClick={() => deleteRoom(r.room_id, r.name)} disabled={deleting === r.room_id}
+                      className="flex items-center gap-1 px-2 py-1.5 border-2 border-ink font-mono text-[10px] uppercase hover:bg-danger hover:text-white transition-colors min-h-[36px]">
+                      <Trash2 size={10} />{deleting === r.room_id ? "..." : "DELETE"}
                     </button>
                   </td>
                 </tr>
@@ -316,21 +242,15 @@ function RoomsPanel({ token, colleges }: { token: string; colleges: College[] })
   );
 }
 
-// ── Junk Queue sub-panel ─────────────────────────────────────
+// ── Junk Queue Panel ──────────────────────────────────────────
 
-function JunkQueuePanel({
-  token,
-  onBanSuccess,
-}: {
-  token: string;
-  onBanSuccess: () => void;
-}) {
-  const [posts,        setPosts]    = useState<JunkPost[]>([]);
-  const [loading,      setLoad]     = useState(true);
-  const [banErr,       setBanErr]   = useState<string | null>(null);
-  const [banningId,    setBanning]  = useState<string | null>(null);
+function JunkQueuePanel({ token, onBanSuccess }: { token: string; onBanSuccess: () => void }) {
+  const [posts,        setPosts]   = useState<JunkPost[]>([]);
+  const [loading,      setLoad]    = useState(true);
+  const [banErr,       setBanErr]  = useState<string | null>(null);
+  const [banningId,    setBanning] = useState<string | null>(null);
   const [manualId,     setManualId] = useState("");
-  const [manualReason, setReason]   = useState("");
+  const [manualReason, setReason]  = useState("");
 
   useEffect(() => {
     apiCall("/dev-admin/flagged-junk", "GET", undefined, token)
@@ -343,12 +263,8 @@ function JunkQueuePanel({
     setBanning(post.post_id);
     setBanErr(null);
     try {
-      await apiCall(
-        "/dev-admin/ban-user",
-        "POST",
-        { user_id: post.post_id, reason: `Junk post: ${post.title.slice(0, 80)}` },
-        token
-      );
+      await apiCall("/dev-admin/ban-user", "POST",
+        { user_id: post.post_id, reason: `Junk post: ${post.title.slice(0, 80)}` }, token);
       setPosts((p) => p.filter((x) => x.post_id !== post.post_id));
       onBanSuccess();
     } catch (err: unknown) {
@@ -362,14 +278,8 @@ function JunkQueuePanel({
     e.preventDefault();
     setBanErr(null);
     try {
-      await apiCall(
-        "/dev-admin/ban-user",
-        "POST",
-        { user_id: manualId, reason: manualReason },
-        token
-      );
-      setManualId("");
-      setReason("");
+      await apiCall("/dev-admin/ban-user", "POST", { user_id: manualId, reason: manualReason }, token);
+      setManualId(""); setReason("");
       alert("Hardware ban issued successfully");
       onBanSuccess();
     } catch (err: unknown) {
@@ -379,100 +289,53 @@ function JunkQueuePanel({
 
   return (
     <div>
-      <h2 className="font-mono font-bold text-sm uppercase mb-4">
-        FLAGGED JUNK QUEUE
-      </h2>
-
-      {banErr && (
-        <div className="brute-card p-3 mb-4 border-danger">
-          <p className="font-mono text-xs text-danger uppercase">{banErr}</p>
-        </div>
-      )}
-
+      <h2 className="font-mono font-bold text-sm uppercase mb-4">FLAGGED JUNK QUEUE</h2>
+      {banErr && <div className="brute-card p-3 mb-4 border-danger"><p className="font-mono text-xs text-danger uppercase">{banErr}</p></div>}
       {loading ? (
-        <div className="flex flex-col gap-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="brute-card h-16 animate-pulse" />
-          ))}
-        </div>
+        <div className="flex flex-col gap-3">{[1,2,3].map((i) => <div key={i} className="brute-card h-16 animate-pulse" />)}</div>
       ) : posts.length === 0 ? (
         <BruteCard className="p-8 text-center" accent="none">
-          <p className="font-mono text-sm text-emerald uppercase tracking-widest">
-            ✓ JUNK QUEUE CLEAR — NO AUTO-HIDDEN POSTS
-          </p>
+          <p className="font-mono text-sm text-emerald uppercase tracking-widest">JUNK QUEUE CLEAR</p>
         </BruteCard>
       ) : (
         <div className="flex flex-col gap-3 mb-6">
           {posts.map((p) => (
-            <BruteCard
-              key={p.post_id}
-              className="p-4 flex items-center gap-4"
-              accent="danger"
-            >
+            <BruteCard key={p.post_id} className="p-4 flex items-center gap-4" accent="danger">
               <AlertTriangle size={18} className="text-danger shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="font-mono text-sm font-bold truncate uppercase">
-                  {p.title}
-                </p>
+                <p className="font-mono text-sm font-bold truncate uppercase">{p.title}</p>
                 <p className="font-mono text-xs text-ink/50 uppercase">
-                  @{p.ghost_handle} • {p.college} • {p.junk_flag_count} flags •{" "}
-                  {p.aye_count} ayes
+                  @{p.ghost_handle} · {p.college} · {p.junk_flag_count} flags · {p.aye_count} ayes
                 </p>
               </div>
-              <button
-                onClick={() => quickBan(p)}
-                disabled={banningId === p.post_id}
-                className="btn-danger text-xs py-1.5 px-3 shrink-0"
-              >
-                <Ban size={12} />
-                {banningId === p.post_id ? "BANNING..." : "HW BAN"}
+              <button onClick={() => quickBan(p)} disabled={banningId === p.post_id} className="btn-danger text-xs py-1.5 px-3 shrink-0">
+                <Ban size={12} />{banningId === p.post_id ? "BANNING..." : "HW BAN"}
               </button>
             </BruteCard>
           ))}
         </div>
       )}
-
-      {/* Manual ban form */}
       <BruteCard className="p-5" accent="danger">
-        <h3 className="font-mono font-bold text-sm uppercase mb-4 flex items-center gap-2">
-          <Ban size={14} /> MANUAL HARDWARE BAN (BY USER ID)
-        </h3>
+        <h3 className="font-mono font-bold text-sm uppercase mb-4 flex items-center gap-2"><Ban size={14} /> MANUAL HARDWARE BAN</h3>
         <form onSubmit={manualBan} className="flex flex-col gap-3 max-w-md">
           <div>
-            <label className="font-mono text-[10px] uppercase tracking-widest text-ink/50 block mb-1">
-              USER ID (UUID) *
-            </label>
-            <input
-              className="brute-input font-mono text-xs"
-              placeholder="00000000-0000-0000-0000-000000000000"
-              value={manualId}
-              onChange={(e) => setManualId(e.target.value)}
-              required
-            />
+            <label className="font-mono text-[10px] uppercase tracking-widest text-ink/50 block mb-1">USER ID (UUID) *</label>
+            <input className="brute-input font-mono text-xs" placeholder="00000000-0000-0000-0000-000000000000"
+              value={manualId} onChange={(e) => setManualId(e.target.value)} required />
           </div>
           <div>
-            <label className="font-mono text-[10px] uppercase tracking-widest text-ink/50 block mb-1">
-              REASON *
-            </label>
-            <input
-              className="brute-input"
-              placeholder="Serial troll / harassment"
-              value={manualReason}
-              onChange={(e) => setReason(e.target.value)}
-              required
-            />
+            <label className="font-mono text-[10px] uppercase tracking-widest text-ink/50 block mb-1">REASON *</label>
+            <input className="brute-input" placeholder="Serial troll / harassment"
+              value={manualReason} onChange={(e) => setReason(e.target.value)} required />
           </div>
-          <button type="submit" className="btn-danger justify-center">
-            <Ban size={14} />
-            EXECUTE HARDWARE BAN
-          </button>
+          <button type="submit" className="btn-danger justify-center"><Ban size={14} />EXECUTE HARDWARE BAN</button>
         </form>
       </BruteCard>
     </div>
   );
 }
 
-// ── Main console ─────────────────────────────────────────────
+// ── Main DevAdminConsole ──────────────────────────────────────
 
 export function DevAdminConsole() {
   const router   = useRouter();
@@ -486,43 +349,32 @@ export function DevAdminConsole() {
   const [error,    setError]   = useState<string | null>(null);
 
   const [newCollege, setNew] = useState({
-    name: "", slug: "", city: "",
-    gps_lat: "", gps_lng: "",
-    geofence_radius_meters: "500",
+    name: "", slug: "", city: "", gps_lat: "", gps_lng: "", geofence_radius_meters: "500",
   });
 
-  const [seedCollegeId, setSeedCol]    = useState("");
-  const [seedCount,     setSeedCount]  = useState("10");
+  const [seedCollegeId, setSeedCol]   = useState("");
+  const [seedCount,     setSeedCount] = useState("10");
   const [seedResult,    setSeedResult] = useState<string[] | null>(null);
 
-  // Redirect non-admins
   useEffect(() => {
-    if (!user)                          { router.push("/auth"); return; }
+    if (!user)                           { router.push("/auth"); return; }
     if (user.role !== "DEV_SUPER_ADMIN") { router.push("/");    return; }
   }, [user, router]);
 
-  // Helper: load all colleges from the admin endpoint (includes GPS)
   const loadColleges = (token: string) =>
     apiCall("/dev-admin/colleges", "GET", undefined, token).then((r) =>
-      setCols((r as { colleges: College[] }).colleges)
-    );
+      setCols((r as { colleges: College[] }).colleges));
 
-  // Initial data load
   useEffect(() => {
     if (!user?.token) return;
     setLoading(true);
     setError(null);
     Promise.all([
-      apiCall("/dev-admin/stats", "GET", undefined, user.token),
+      apiCall("/dev-admin/stats",    "GET", undefined, user.token),
       apiCall("/dev-admin/colleges", "GET", undefined, user.token),
     ])
-      .then(([s, c]) => {
-        setStats(s as Stats);
-        setCols((c as { colleges: College[] }).colleges);
-      })
-      .catch((e: unknown) =>
-        setError(e instanceof Error ? e.message : "Load failed")
-      )
+      .then(([s, c]) => { setStats(s as Stats); setCols((c as { colleges: College[] }).colleges); })
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : "Load failed"))
       .finally(() => setLoading(false));
   }, [user?.token]);
 
@@ -533,19 +385,14 @@ export function DevAdminConsole() {
     setError(null);
     if (!user) return;
     try {
-      await apiCall(
-        "/dev-admin/colleges",
-        "POST",
-        {
-          name:                   newCollege.name,
-          slug:                   newCollege.slug,
-          city:                   newCollege.city,
-          gps_lat:                parseFloat(newCollege.gps_lat),
-          gps_lng:                parseFloat(newCollege.gps_lng),
-          geofence_radius_meters: parseInt(newCollege.geofence_radius_meters),
-        },
-        user.token
-      );
+      await apiCall("/dev-admin/colleges", "POST", {
+        name:                   newCollege.name,
+        slug:                   newCollege.slug,
+        city:                   newCollege.city,
+        gps_lat:                parseFloat(newCollege.gps_lat),
+        gps_lng:                parseFloat(newCollege.gps_lng),
+        geofence_radius_meters: parseInt(newCollege.geofence_radius_meters),
+      }, user.token);
       setAdding(false);
       setNew({ name: "", slug: "", city: "", gps_lat: "", gps_lng: "", geofence_radius_meters: "500" });
       await loadColleges(user.token);
@@ -559,36 +406,22 @@ export function DevAdminConsole() {
     setError(null);
     if (!user) return;
     try {
-      const res = await apiCall(
-        "/dev-admin/seed-otp",
-        "POST",
-        { college_id: seedCollegeId, count: parseInt(seedCount) },
-        user.token
-      );
-      setSeedResult(
-        (res as { codes: { otp_code: string }[] }).codes.map((c) => c.otp_code)
-      );
+      const res = await apiCall("/dev-admin/seed-otp", "POST",
+        { college_id: seedCollegeId, count: parseInt(seedCount) }, user.token);
+      setSeedResult((res as { codes: { otp_code: string }[] }).codes.map((c) => c.otp_code));
     } catch (err: unknown) {
-      setError(
-        err instanceof Error ? err.message : "Failed to generate seed OTPs"
-      );
+      setError(err instanceof Error ? err.message : "Failed to generate seed OTPs");
     }
   }
 
-  // Safe GPS formatter
-  const fmtGps = (v: number | null | undefined) =>
-    v != null ? Number(v).toFixed(4) : "—";
-
-  // Safe rate formatter
-  const fmtRate = (v: number | null | undefined) =>
-    (v ?? 0).toFixed(0);
+  const fmtGps  = (v: number | null | undefined) => v != null ? Number(v).toFixed(4) : "-";
+  const fmtRate = (v: number | null | undefined) => (v ?? 0).toFixed(0);
 
   return (
     <div>
-      {/* HEADER */}
       <div className="flex items-center gap-4 mb-6">
         <div className="bg-danger text-white font-mono font-bold text-sm px-3 py-1.5 border-3 border-ink shadow-brutal">
-          ⚡ DEV SUPER-ADMIN
+          DEV SUPER-ADMIN
         </div>
         <div>
           <div className="section-label mb-1">PLATFORM CONTROL</div>
@@ -606,31 +439,21 @@ export function DevAdminConsole() {
       {/* TAB BAR */}
       <div className="flex flex-wrap border-3 border-ink mb-6 shadow-brutal">
         {TABS.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={cn(
-              "py-2.5 font-mono font-bold text-[11px] uppercase tracking-wider",
-              "border-r-2 border-b-2 border-ink transition-colors whitespace-nowrap px-3",
-              "last:border-r-0",
-              tab === t.id
-                ? "bg-ink text-acid"
-                : "bg-paper text-ink hover:bg-acid/20"
-            )}
-          >
+          <button key={t.id} onClick={() => setTab(t.id)}
+            className={cn("py-2.5 font-mono font-bold text-[11px] uppercase tracking-wider",
+              "border-r-2 border-b-2 border-ink transition-colors whitespace-nowrap px-3 last:border-r-0",
+              tab === t.id ? "bg-ink text-acid" : "bg-paper text-ink hover:bg-acid/20")}>
             {t.label}
           </button>
         ))}
       </div>
 
-      {/* ── STATS ─────────────────────────────────────────── */}
+      {/* STATS */}
       {tab === "stats" && (
         <div>
           {loading ? (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="brute-card p-6 h-24 animate-pulse" />
-              ))}
+              {[1,2,3,4].map((i) => <div key={i} className="brute-card p-6 h-24 animate-pulse" />)}
             </div>
           ) : stats ? (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -641,264 +464,153 @@ export function DevAdminConsole() {
                 { label: "HW BANS",      value: stats.hardware_bans,     color: "text-danger" },
               ].map((s) => (
                 <BruteCard key={s.label} className="p-6 text-center">
-                  <div className={`font-mono font-bold text-4xl ${s.color} mb-2`}>
-                    {s.value}
-                  </div>
-                  <div className="font-mono text-[10px] text-ink/40 uppercase tracking-widest">
-                    {s.label}
-                  </div>
+                  <div className={`font-mono font-bold text-4xl ${s.color} mb-2`}>{s.value}</div>
+                  <div className="font-mono text-[10px] text-ink/40 uppercase tracking-widest">{s.label}</div>
                 </BruteCard>
               ))}
             </div>
-          ) : (
-            <p className="font-mono text-xs text-ink/40 uppercase">No data</p>
-          )}
+          ) : <p className="font-mono text-xs text-ink/40 uppercase">No data</p>}
         </div>
       )}
 
-      {/* ── COLLEGES ──────────────────────────────────────── */}
+      {/* COLLEGES */}
       {tab === "colleges" && (
         <div>
           <div className="flex justify-between items-center mb-4">
-            <h2 className="font-mono font-bold text-sm uppercase">
-              REGISTERED COLLEGES
-            </h2>
-            <button
-              className="btn-primary"
-              onClick={() => setAdding((v) => !v)}
-            >
-              <Plus size={14} />
-              ADD COLLEGE
+            <h2 className="font-mono font-bold text-sm uppercase">REGISTERED COLLEGES</h2>
+            <button className="btn-primary" onClick={() => setAdding((v) => !v)}>
+              <Plus size={14} />ADD COLLEGE
             </button>
           </div>
-
           {adding && (
             <BruteCard className="p-5 mb-5" accent="acid">
-              <h3 className="font-mono font-bold text-sm uppercase mb-4">
-                NEW COLLEGE
-              </h3>
+              <h3 className="font-mono font-bold text-sm uppercase mb-4">NEW COLLEGE</h3>
               <form onSubmit={addCollege}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                   {[
-                    { key: "name",                   label: "COLLEGE NAME", ph: "Yenepoya University (Bengaluru Campus)", req: true },
-                    { key: "slug",                   label: "SLUG",         ph: "yenepoya-blr",                            req: true },
-                    { key: "city",                   label: "CITY",         ph: "Bengaluru",                               req: true },
-                    { key: "gps_lat",                label: "GPS LAT",      ph: "12.9716",                                 req: true },
-                    { key: "gps_lng",                label: "GPS LNG",      ph: "77.5946",                                 req: true },
-                    { key: "geofence_radius_meters", label: "GEOFENCE (m)", ph: "500",                                     req: false },
+                    { key: "name",                   label: "COLLEGE NAME", ph: "Yenepoya University", req: true },
+                    { key: "slug",                   label: "SLUG",         ph: "yenepoya-blr",        req: true },
+                    { key: "city",                   label: "CITY",         ph: "Bengaluru",            req: true },
+                    { key: "gps_lat",                label: "GPS LAT",      ph: "12.9716",             req: true },
+                    { key: "gps_lng",                label: "GPS LNG",      ph: "77.5946",             req: true },
+                    { key: "geofence_radius_meters", label: "GEOFENCE (m)", ph: "500",                 req: false },
                   ].map((f) => (
                     <div key={f.key}>
                       <label className="font-mono text-[10px] uppercase tracking-widest text-ink/50 block mb-1">
                         {f.label}{f.req && " *"}
                       </label>
-                      <input
-                        className="brute-input"
-                        placeholder={f.ph}
+                      <input className="brute-input" placeholder={f.ph}
                         value={newCollege[f.key as keyof typeof newCollege]}
-                        onChange={(e) =>
-                          setNew((n) => ({ ...n, [f.key]: e.target.value }))
-                        }
-                        required={f.req}
-                      />
+                        onChange={(e) => setNew((n) => ({ ...n, [f.key]: e.target.value }))}
+                        required={f.req} />
                     </div>
                   ))}
                 </div>
                 <div className="flex gap-3">
-                  <button type="submit" className="btn-primary">
-                    SAVE COLLEGE
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={() => setAdding(false)}
-                  >
-                    CANCEL
-                  </button>
+                  <button type="submit" className="btn-primary">SAVE COLLEGE</button>
+                  <button type="button" className="btn-secondary" onClick={() => setAdding(false)}>CANCEL</button>
                 </div>
               </form>
             </BruteCard>
           )}
-
           <div className="border-3 border-ink shadow-brutal overflow-x-auto">
             <table className="w-full min-w-[560px]">
               <thead className="bg-ink text-acid">
                 <tr>
-                  {["NAME", "CITY", "GRADE", "RATE", "ISSUES", "GPS"].map(
-                    (h) => (
-                      <th
-                        key={h}
-                        className="px-4 py-3 text-left font-mono text-xs uppercase tracking-widest border-r-2 border-acid/20 last:border-r-0"
-                        scope="col"
-                      >
-                        {h}
-                      </th>
-                    )
-                  )}
+                  {["NAME", "CITY", "GRADE", "RATE", "ISSUES", "GPS"].map((h) => (
+                    <th key={h} className="px-4 py-3 text-left font-mono text-xs uppercase tracking-widest border-r-2 border-acid/20 last:border-r-0" scope="col">{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {loading ? (
-                  [1, 2].map((i) => (
-                    <tr key={i} className="border-t-2 border-ink">
-                      {[1, 2, 3, 4, 5, 6].map((j) => (
-                        <td key={j} className="px-4 py-3">
-                          <div className="h-4 bg-ink/10 animate-pulse rounded" />
-                        </td>
-                      ))}
-                    </tr>
-                  ))
-                ) : (
-                  colleges.map((c) => (
-                    <tr
-                      key={c.college_id}
-                      className="border-t-2 border-ink hover:bg-acid/5"
-                    >
-                      <td className="px-4 py-3 font-mono text-xs font-bold">
-                        {c.name}
-                      </td>
-                      <td className="px-4 py-3 font-mono text-xs text-ink/60 uppercase">
-                        {c.city}
-                      </td>
-                      <td className="px-4 py-3">
-                        <GradeDisplay
-                          grade={c.reality_grade ?? "N/A"}
-                          size="sm"
-                        />
-                      </td>
-                      <td className="px-4 py-3 font-mono text-xs">
-                        {fmtRate(c.resolution_rate)}%
-                      </td>
-                      <td className="px-4 py-3 font-mono text-xs">
-                        {c.total_experiences ?? 0}
-                      </td>
-                      <td className="px-4 py-3 font-mono text-[10px] text-ink/40">
-                        {fmtGps(c.gps_lat)}, {fmtGps(c.gps_lng)}
-                      </td>
-                    </tr>
-                  ))
-                )}
+                {loading ? [1,2].map((i) => (
+                  <tr key={i} className="border-t-2 border-ink">
+                    {[1,2,3,4,5,6].map((j) => <td key={j} className="px-4 py-3"><div className="h-4 bg-ink/10 animate-pulse rounded" /></td>)}
+                  </tr>
+                )) : colleges.map((c) => (
+                  <tr key={c.college_id} className="border-t-2 border-ink hover:bg-acid/5">
+                    <td className="px-4 py-3 font-mono text-xs font-bold">{c.name}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-ink/60 uppercase">{c.city}</td>
+                    <td className="px-4 py-3"><GradeDisplay grade={c.reality_grade ?? "N/A"} size="sm" /></td>
+                    <td className="px-4 py-3 font-mono text-xs">{fmtRate(c.resolution_rate)}%</td>
+                    <td className="px-4 py-3 font-mono text-xs">{c.total_experiences ?? 0}</td>
+                    <td className="px-4 py-3 font-mono text-[10px] text-ink/40">{fmtGps(c.gps_lat)}, {fmtGps(c.gps_lng)}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
             {!loading && colleges.length === 0 && (
-              <div className="py-10 text-center font-mono text-xs text-ink/30 uppercase">
-                NO COLLEGES YET
-              </div>
+              <div className="py-10 text-center font-mono text-xs text-ink/30 uppercase">NO COLLEGES YET</div>
             )}
           </div>
         </div>
       )}
 
-      {/* ── SEED OTP ──────────────────────────────────────── */}
+      {/* ROOMS */}
+      {tab === "rooms" && <RoomsPanel token={user.token} colleges={colleges} />}
+
+      {/* SEED OTP */}
       {tab === "seed-otp" && (
         <BruteCard className="p-6">
-          <h2 className="font-mono font-bold text-sm uppercase mb-4">
-            GENERATE SEED OTP
-          </h2>
-          <p className="font-mono text-xs text-ink/60 mb-5">
-            Generate master invite codes for bootstrapping a new college.
-          </p>
+          <h2 className="font-mono font-bold text-sm uppercase mb-4">GENERATE SEED OTP</h2>
+          <p className="font-mono text-xs text-ink/60 mb-5">Generate master invite codes for bootstrapping a new college.</p>
           <form onSubmit={generateSeedOtps} className="flex flex-col gap-4 max-w-md">
             <div>
-              <label className="font-mono text-[10px] uppercase tracking-widest text-ink/50 block mb-1">
-                SELECT COLLEGE *
-              </label>
-              <select
-                className="brute-input"
-                value={seedCollegeId}
-                onChange={(e) => setSeedCol(e.target.value)}
-                required
-              >
+              <label className="font-mono text-[10px] uppercase tracking-widest text-ink/50 block mb-1">SELECT COLLEGE *</label>
+              <select className="brute-input" value={seedCollegeId} onChange={(e) => setSeedCol(e.target.value)} required>
                 <option value="">Select college...</option>
-                {colleges.map((c) => (
-                  <option key={c.college_id} value={c.college_id}>
-                    {c.name}
-                  </option>
-                ))}
+                {colleges.map((c) => <option key={c.college_id} value={c.college_id}>{c.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="font-mono text-[10px] uppercase tracking-widest text-ink/50 block mb-1">
-                NUMBER OF CODES
-              </label>
-              <input
-                className="brute-input"
-                type="number"
-                value={seedCount}
-                onChange={(e) => setSeedCount(e.target.value)}
-                min={1}
-                max={50}
-              />
+              <label className="font-mono text-[10px] uppercase tracking-widest text-ink/50 block mb-1">NUMBER OF CODES</label>
+              <input className="brute-input" type="number" value={seedCount}
+                onChange={(e) => setSeedCount(e.target.value)} min={1} max={50} />
             </div>
             <button type="submit" className="btn-inverse w-full justify-center">
-              <Zap size={16} />
-              GENERATE SEED CODES
+              <Zap size={16} />GENERATE SEED CODES
             </button>
           </form>
-
           {seedResult && (
             <div className="mt-6">
-              <div className="section-label mb-3 inline-block">
-                GENERATED CODES
-              </div>
+              <div className="section-label mb-3 inline-block">GENERATED CODES</div>
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                 {seedResult.map((code) => (
-                  <div
-                    key={code}
-                    className="border-2 border-ink bg-acid font-mono font-bold text-center py-2 text-sm tracking-widest"
-                  >
-                    {code}
-                  </div>
+                  <div key={code} className="border-2 border-ink bg-acid font-mono font-bold text-center py-2 text-sm tracking-widest">{code}</div>
                 ))}
               </div>
-              <p className="font-mono text-xs text-ink/50 mt-3 uppercase">
-                Valid 7 days. Single-use only.
-              </p>
+              <p className="font-mono text-xs text-ink/50 mt-3 uppercase">Valid 7 days. Single-use only.</p>
             </div>
           )}
         </BruteCard>
       )}
 
-      {/* ── ROOMS ─────────────────────────────────────── */}
-      {tab === "rooms" && (
-        <RoomsPanel token={user.token} colleges={colleges} />
-      )}
+      {/* JUNK QUEUE */}
+      {tab === "junk" && <JunkQueuePanel token={user.token} onBanSuccess={() => {}} />}
 
-      {/* ── JUNK QUEUE ────────────────────────────────────── */}
-      {tab === "junk" && (
-        <JunkQueuePanel token={user.token} onBanSuccess={() => {}} />
-      )}
-
-      {/* ── HW BANS ───────────────────────────────────────── */}
+      {/* HW BANS */}
       {tab === "bans" && (
         <div>
-          <h2 className="font-mono font-bold text-sm uppercase mb-4">
-            HARDWARE BAN REGISTRY
-          </h2>
+          <h2 className="font-mono font-bold text-sm uppercase mb-4">HARDWARE BAN REGISTRY</h2>
           <BruteCard className="p-4" accent="none">
             <p className="font-mono text-xs text-ink/60 uppercase">
-              Hardware bans live in the{" "}
-              <code className="bg-ink/10 px-1">banned_fingerprints</code> table.
-              Auto-bans trigger after 2 strikes. Use the JUNK QUEUE tab for
-              manual bans.
+              Hardware bans live in the <code className="bg-ink/10 px-1">banned_fingerprints</code> table.
+              Auto-bans trigger after 2 strikes. Use the JUNK QUEUE tab for manual bans.
             </p>
           </BruteCard>
         </div>
       )}
 
-      {/* ── CAMPAIGNS ──────────────────────────────────────── */}
-      {tab === "campaigns" && user && (
-        <CampaignPanel token={user.token} colleges={colleges} />
-      )}
+      {/* CAMPAIGNS */}
+      {tab === "campaigns" && <CampaignPanel token={user.token} colleges={colleges} />}
 
-      {/* -- ISSUES ------------------------------------------- */}
-      {tab === "issues" && user && (
-        <IssuesPanel token={user.token} />
-      )}
+      {/* ISSUES */}
+      {tab === "issues" && <IssuesPanel token={user.token} />}
     </div>
   );
 }
 
-// ── Campaign Manager Panel ───────────────────────────────────
+// ── Campaign helpers ──────────────────────────────────────────
 
 interface Campaign {
   campaign_id:   string;
@@ -932,26 +644,26 @@ interface CampaignSubmission {
 type CampaignSubTab = "list" | "create" | "submissions";
 
 const STATUS_COLORS: Record<string, string> = {
-  DRAFT:   "bg-ink/20 text-ink",
-  ACTIVE:  "bg-emerald/20 text-emerald",
-  PAUSED:  "bg-amber/20 text-amber",
-  CLOSED:  "bg-danger/20 text-danger",
+  DRAFT:    "bg-ink/20 text-ink",
+  ACTIVE:   "bg-emerald/20 text-emerald",
+  PAUSED:   "bg-amber/20 text-amber",
+  CLOSED:   "bg-danger/20 text-danger",
   PENDING:  "bg-amber/20 text-amber",
   APPROVED: "bg-emerald/20 text-emerald",
   REJECTED: "bg-danger/20 text-danger",
 };
 
 function fmtDate(d: string) {
-  return new Date(d).toLocaleDateString("en-IN", {
-    day: "2-digit", month: "short", year: "numeric",
-  });
+  return new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 function fmtBytes(b: number) {
-  if (b < 1024)       return `${b} B`;
+  if (b < 1024)        return `${b} B`;
   if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
   return `${(b / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+// ── Campaign Panel ────────────────────────────────────────────
 
 function CampaignPanel({ token, colleges }: { token: string; colleges: College[] }) {
   const [subTab,      setSubTab]    = useState<CampaignSubTab>("list");
@@ -959,114 +671,70 @@ function CampaignPanel({ token, colleges }: { token: string; colleges: College[]
   const [loading,     setLoading]   = useState(true);
   const [error,       setError]     = useState<string | null>(null);
   const [saving,      setSaving]    = useState(false);
-
-  // Selected campaign for viewing submissions
-  const [viewCampaign, setViewCampaign]   = useState<Campaign | null>(null);
-  const [submissions,  setSubmissions]    = useState<CampaignSubmission[]>([]);
-  const [subLoading,   setSubLoading]     = useState(false);
-  const [reviewing,    setReviewing]      = useState<string | null>(null);
-
-  // Create form state
+  const [viewCampaign, setViewCampaign] = useState<Campaign | null>(null);
+  const [submissions,  setSubmissions]  = useState<CampaignSubmission[]>([]);
+  const [subLoading,   setSubLoading]   = useState(false);
+  const [reviewing,    setReviewing]    = useState<string | null>(null);
+  const [editing,    setEditing]    = useState<string | null>(null);
+  const [editStatus, setEditStatus] = useState<string>("DRAFT");
   const [form, setForm] = useState({
-    college_id:    "",
-    title:         "",
-    description:   "",
-    reward_points: "10",
-    status:        "DRAFT",
-    starts_at:     "",
-    ends_at:       "",
+    college_id: "", title: "", description: "", reward_points: "10", status: "DRAFT", starts_at: "", ends_at: "",
   });
 
-  // Edit form (inline status change)
-  const [editing, setEditing] = useState<string | null>(null);
-  const [editStatus, setEditStatus] = useState<string>("DRAFT");
-
   const loadCampaigns = async () => {
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
       const r = await apiCall("/dev-admin/campaigns", "GET", undefined, token);
       setCampaigns((r as { campaigns: Campaign[] }).campaigns);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to load campaigns");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-  useEffect(() => { loadCampaigns(); }, [token]);
+  useEffect(() => { loadCampaigns(); }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadSubmissions = async (campaign: Campaign) => {
-    setViewCampaign(campaign);
-    setSubTab("submissions");
-    setSubLoading(true);
+    setViewCampaign(campaign); setSubTab("submissions"); setSubLoading(true);
     try {
       const r = await apiCall(`/dev-admin/campaigns/${campaign.campaign_id}/submissions`, "GET", undefined, token);
       setSubmissions((r as { submissions: CampaignSubmission[] }).submissions);
-    } catch {
-      setSubmissions([]);
-    } finally {
-      setSubLoading(false);
-    }
+    } catch { setSubmissions([]); }
+    finally { setSubLoading(false); }
   };
 
   async function createCampaign(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    setError(null);
+    e.preventDefault(); setSaving(true); setError(null);
     try {
-      await apiCall("/dev-admin/campaigns", "POST", {
-        ...form,
-        reward_points: parseInt(form.reward_points),
-      }, token);
+      await apiCall("/dev-admin/campaigns", "POST", { ...form, reward_points: parseInt(form.reward_points) }, token);
       setForm({ college_id: "", title: "", description: "", reward_points: "10", status: "DRAFT", starts_at: "", ends_at: "" });
       setSubTab("list");
       await loadCampaigns();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to create campaign");
-    } finally {
-      setSaving(false);
-    }
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed to create campaign"); }
+    finally { setSaving(false); }
   }
 
   async function updateStatus(campaignId: string, status: string) {
-    setError(null);
-    try {
-      await apiCall(`/dev-admin/campaigns/${campaignId}`, "PATCH", { status }, token);
-      setEditing(null);
-      await loadCampaigns();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to update campaign");
-    }
+    try { await apiCall(`/dev-admin/campaigns/${campaignId}`, "PATCH", { status }, token); setEditing(null); await loadCampaigns(); }
+    catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed to update"); }
   }
 
   async function deleteCampaign(campaign: Campaign) {
-    if (!confirm(`Delete campaign "${campaign.title}"? This removes all ${campaign._count.submissions} submissions and their files.`)) return;
-    setError(null);
-    try {
-      await apiCall(`/dev-admin/campaigns/${campaign.campaign_id}`, "DELETE", undefined, token);
-      await loadCampaigns();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to delete campaign");
-    }
+    if (!confirm(`Delete campaign "${campaign.title}"?`)) return;
+    try { await apiCall(`/dev-admin/campaigns/${campaign.campaign_id}`, "DELETE", undefined, token); await loadCampaigns(); }
+    catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed to delete campaign"); }
   }
 
   async function reviewSubmission(subId: string, status: "APPROVED" | "REJECTED", note: string) {
     setReviewing(subId);
     try {
       await apiCall(`/dev-admin/campaigns/submissions/${subId}`, "PATCH", { status, admin_note: note || undefined }, token);
-      // Refresh submissions
       if (viewCampaign) await loadSubmissions(viewCampaign);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Review failed");
-    } finally {
-      setReviewing(null);
-    }
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : "Review failed"); }
+    finally { setReviewing(null); }
   }
 
   return (
     <div>
-      {/* Header + sub-tabs */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div className="flex items-center gap-2">
           <Megaphone size={16} className="text-acid" />
@@ -1074,14 +742,9 @@ function CampaignPanel({ token, colleges }: { token: string; colleges: College[]
         </div>
         <div className="flex border-2 border-ink overflow-hidden">
           {(["list", "create"] as CampaignSubTab[]).map((t) => (
-            <button
-              key={t}
-              onClick={() => { setSubTab(t); setViewCampaign(null); }}
-              className={cn(
-                "px-3 py-1.5 font-mono text-xs uppercase font-bold border-r-2 border-ink last:border-r-0",
-                subTab === t ? "bg-ink text-acid" : "bg-paper text-ink hover:bg-acid/20"
-              )}
-            >
+            <button key={t} onClick={() => { setSubTab(t); setViewCampaign(null); }}
+              className={cn("px-3 py-1.5 font-mono text-xs uppercase font-bold border-r-2 border-ink last:border-r-0",
+                subTab === t ? "bg-ink text-acid" : "bg-paper text-ink hover:bg-acid/20")}>
               {t === "list" ? "ALL CAMPAIGNS" : "+ NEW CAMPAIGN"}
             </button>
           ))}
@@ -1095,26 +758,21 @@ function CampaignPanel({ token, colleges }: { token: string; colleges: College[]
         </div>
       )}
 
-      {/* ── CAMPAIGN LIST ─────────────────────────────────── */}
       {subTab === "list" && (
         <div>
           {loading ? (
-            <div className="flex flex-col gap-3">
-              {[1, 2, 3].map((i) => <div key={i} className="brute-card h-20 animate-pulse" />)}
-            </div>
+            <div className="flex flex-col gap-3">{[1,2,3].map((i) => <div key={i} className="brute-card h-20 animate-pulse" />)}</div>
           ) : campaigns.length === 0 ? (
             <BruteCard className="p-8 text-center" accent="none">
               <Megaphone size={32} className="mx-auto mb-3 text-ink/20" />
-              <p className="font-mono text-sm text-ink/40 uppercase tracking-widest">
-                NO CAMPAIGNS YET — CREATE ONE TO GET STARTED
-              </p>
+              <p className="font-mono text-sm text-ink/40 uppercase tracking-widest">NO CAMPAIGNS YET</p>
             </BruteCard>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full border-3 border-ink shadow-brutal text-sm">
                 <thead className="bg-ink text-acid">
                   <tr>
-                    {["TITLE", "COLLEGE", "REWARD", "STATUS", "SUBMISSIONS", "DATES", "ACTIONS"].map((h) => (
+                    {["TITLE","COLLEGE","REWARD","STATUS","SUBMISSIONS","DATES","ACTIONS"].map((h) => (
                       <th key={h} className="px-4 py-3 font-mono text-[10px] uppercase tracking-widest text-left border-r-2 border-acid/20 last:border-r-0">{h}</th>
                     ))}
                   </tr>
@@ -1128,58 +786,41 @@ function CampaignPanel({ token, colleges }: { token: string; colleges: College[]
                       </td>
                       <td className="px-4 py-3 font-mono text-xs text-ink/60">{c.college.name}</td>
                       <td className="px-4 py-3">
-                        <span className="font-mono text-xs font-bold text-acid bg-ink px-2 py-0.5">
-                          +{c.reward_points} PTS
-                        </span>
+                        <span className="font-mono text-xs font-bold text-acid bg-ink px-2 py-0.5">+{c.reward_points} PTS</span>
                       </td>
                       <td className="px-4 py-3">
                         {editing === c.campaign_id ? (
                           <div className="flex items-center gap-1">
-                            <select
-                              className="brute-input text-[10px] py-1 px-1 font-mono"
-                              value={editStatus}
-                              onChange={(e) => setEditStatus(e.target.value)}
-                            >
-                              {["DRAFT", "ACTIVE", "PAUSED", "CLOSED"].map((s) => (
-                                <option key={s} value={s}>{s}</option>
-                              ))}
+                            <select className="brute-input text-[10px] py-1 px-1 font-mono" value={editStatus}
+                              onChange={(e) => setEditStatus(e.target.value)}>
+                              {["DRAFT","ACTIVE","PAUSED","CLOSED"].map((s) => <option key={s} value={s}>{s}</option>)}
                             </select>
-                            <button
-                              onClick={() => updateStatus(c.campaign_id, editStatus)}
-                              className="font-mono text-[10px] px-1.5 py-1 bg-acid text-ink border-2 border-ink font-bold"
-                            >✓</button>
-                            <button
-                              onClick={() => setEditing(null)}
-                              className="font-mono text-[10px] px-1.5 py-1 border-2 border-ink"
-                            >✕</button>
+                            <button onClick={() => updateStatus(c.campaign_id, editStatus)}
+                              className="font-mono text-[10px] px-1.5 py-1 bg-acid text-ink border-2 border-ink font-bold">OK</button>
+                            <button onClick={() => setEditing(null)}
+                              className="font-mono text-[10px] px-1.5 py-1 border-2 border-ink">X</button>
                           </div>
                         ) : (
-                          <button
-                            onClick={() => { setEditing(c.campaign_id); setEditStatus(c.status); }}
-                            className={cn("font-mono text-[10px] px-2 py-1 border-2 border-ink/30 uppercase font-bold", STATUS_COLORS[c.status])}
-                          >
+                          <button onClick={() => { setEditing(c.campaign_id); setEditStatus(c.status); }}
+                            className={cn("font-mono text-[10px] px-2 py-1 border-2 border-ink/30 uppercase font-bold", STATUS_COLORS[c.status])}>
                             {c.status}
                           </button>
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <button
-                          onClick={() => loadSubmissions(c)}
-                          className="font-mono text-xs font-bold text-acid underline underline-offset-2"
-                        >
+                        <button onClick={() => loadSubmissions(c)}
+                          className="font-mono text-xs font-bold text-acid underline underline-offset-2">
                           {c._count.submissions} VIEW
                         </button>
                       </td>
                       <td className="px-4 py-3 font-mono text-[10px] text-ink/50">
                         <div>{fmtDate(c.starts_at)}</div>
-                        <div>→ {fmtDate(c.ends_at)}</div>
+                        <div>to {fmtDate(c.ends_at)}</div>
                       </td>
                       <td className="px-4 py-3">
-                        <button
-                          onClick={() => deleteCampaign(c)}
-                          className="flex items-center gap-1 px-2 py-1.5 border-2 border-ink font-mono text-[10px] uppercase hover:bg-danger hover:text-white transition-colors min-h-[36px]"
-                        >
-                          <Trash2 size={10} /> DEL
+                        <button onClick={() => deleteCampaign(c)}
+                          className="flex items-center gap-1 px-2 py-1.5 border-2 border-ink font-mono text-[10px] uppercase hover:bg-danger hover:text-white transition-colors min-h-[36px]">
+                          <Trash2 size={10} />DEL
                         </button>
                       </td>
                     </tr>
@@ -1191,124 +832,70 @@ function CampaignPanel({ token, colleges }: { token: string; colleges: College[]
         </div>
       )}
 
-      {/* ── CREATE CAMPAIGN ───────────────────────────────── */}
       {subTab === "create" && (
         <BruteCard className="p-6" accent="acid">
           <h3 className="font-mono font-bold text-sm uppercase mb-5 flex items-center gap-2">
-            <Plus size={14} /> NEW CAMPAIGN
+            <Plus size={14} />NEW CAMPAIGN
           </h3>
           <form onSubmit={createCampaign} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* College */}
             <div className="sm:col-span-2">
               <label className="font-mono text-[10px] uppercase tracking-widest text-ink/50 block mb-1">COLLEGE *</label>
-              <select
-                className="brute-input font-mono text-xs w-full"
-                value={form.college_id}
-                onChange={(e) => setForm({ ...form, college_id: e.target.value })}
-                required
-              >
-                <option value="">— Select college —</option>
-                {colleges.map((c) => (
-                  <option key={c.college_id} value={c.college_id}>{c.name}</option>
-                ))}
+              <select className="brute-input font-mono text-xs w-full" value={form.college_id}
+                onChange={(e) => setForm({ ...form, college_id: e.target.value })} required>
+                <option value="">Select college</option>
+                {colleges.map((c) => <option key={c.college_id} value={c.college_id}>{c.name}</option>)}
               </select>
             </div>
-
-            {/* Title */}
             <div className="sm:col-span-2">
               <label className="font-mono text-[10px] uppercase tracking-widest text-ink/50 block mb-1">CAMPAIGN TITLE *</label>
-              <input
-                className="brute-input font-mono text-xs w-full"
-                placeholder="e.g. Report Broken Lab Equipment — Oct 2026"
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-                required minLength={5} maxLength={140}
-              />
+              <input className="brute-input font-mono text-xs w-full" placeholder="e.g. Report Broken Lab Equipment"
+                value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required minLength={5} maxLength={140} />
             </div>
-
-            {/* Description */}
             <div className="sm:col-span-2">
               <label className="font-mono text-[10px] uppercase tracking-widest text-ink/50 block mb-1">DESCRIPTION *</label>
-              <textarea
-                className="brute-input font-mono text-xs w-full min-h-[80px] resize-y"
-                placeholder="What problem areas should students document? What evidence is needed?"
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                required minLength={20}
-              />
+              <textarea className="brute-input font-mono text-xs w-full min-h-[80px] resize-y"
+                placeholder="What problem areas should students document?"
+                value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} required minLength={20} />
             </div>
-
-            {/* Reward points */}
             <div>
               <label className="font-mono text-[10px] uppercase tracking-widest text-ink/50 block mb-1">REWARD POINTS *</label>
-              <input
-                type="number" min={1} max={1000}
-                className="brute-input font-mono text-xs w-full"
-                value={form.reward_points}
-                onChange={(e) => setForm({ ...form, reward_points: e.target.value })}
-                required
-              />
-              <p className="font-mono text-[10px] text-ink/40 mt-1">Awarded per approved submission</p>
+              <input type="number" min={1} max={1000} className="brute-input font-mono text-xs w-full"
+                value={form.reward_points} onChange={(e) => setForm({ ...form, reward_points: e.target.value })} required />
             </div>
-
-            {/* Status */}
             <div>
               <label className="font-mono text-[10px] uppercase tracking-widest text-ink/50 block mb-1">INITIAL STATUS</label>
-              <select
-                className="brute-input font-mono text-xs w-full"
-                value={form.status}
-                onChange={(e) => setForm({ ...form, status: e.target.value })}
-              >
+              <select className="brute-input font-mono text-xs w-full" value={form.status}
+                onChange={(e) => setForm({ ...form, status: e.target.value })}>
                 <option value="DRAFT">DRAFT (not visible to students)</option>
                 <option value="ACTIVE">ACTIVE (open for submissions)</option>
               </select>
             </div>
-
-            {/* Dates */}
             <div>
               <label className="font-mono text-[10px] uppercase tracking-widest text-ink/50 block mb-1">STARTS AT *</label>
-              <input
-                type="datetime-local"
-                className="brute-input font-mono text-xs w-full"
-                value={form.starts_at}
-                onChange={(e) => setForm({ ...form, starts_at: e.target.value })}
-                required
-              />
+              <input type="datetime-local" className="brute-input font-mono text-xs w-full"
+                value={form.starts_at} onChange={(e) => setForm({ ...form, starts_at: e.target.value })} required />
             </div>
             <div>
               <label className="font-mono text-[10px] uppercase tracking-widest text-ink/50 block mb-1">ENDS AT *</label>
-              <input
-                type="datetime-local"
-                className="brute-input font-mono text-xs w-full"
-                value={form.ends_at}
-                onChange={(e) => setForm({ ...form, ends_at: e.target.value })}
-                required
-              />
+              <input type="datetime-local" className="brute-input font-mono text-xs w-full"
+                value={form.ends_at} onChange={(e) => setForm({ ...form, ends_at: e.target.value })} required />
             </div>
-
-            {/* Submit */}
             <div className="sm:col-span-2 flex gap-3 pt-2">
               <button type="submit" disabled={saving} className="btn-primary">
-                <Megaphone size={14} />
-                {saving ? "CREATING..." : "CREATE CAMPAIGN"}
+                <Megaphone size={14} />{saving ? "CREATING..." : "CREATE CAMPAIGN"}
               </button>
-              <button type="button" onClick={() => setSubTab("list")} className="btn-secondary">
-                CANCEL
-              </button>
+              <button type="button" onClick={() => setSubTab("list")} className="btn-secondary">CANCEL</button>
             </div>
           </form>
         </BruteCard>
       )}
 
-      {/* ── SUBMISSIONS VIEWER ─────────────────────────────── */}
       {subTab === "submissions" && viewCampaign && (
         <div>
           <div className="flex items-center gap-3 mb-4">
-            <button
-              onClick={() => { setSubTab("list"); setViewCampaign(null); }}
-              className="font-mono text-xs btn-secondary py-1.5 px-3"
-            >
-              ← BACK
+            <button onClick={() => { setSubTab("list"); setViewCampaign(null); }}
+              className="font-mono text-xs btn-secondary py-1.5 px-3">
+              BACK
             </button>
             <div>
               <p className="font-mono text-[10px] text-ink/40 uppercase">CAMPAIGN</p>
@@ -1318,27 +905,16 @@ function CampaignPanel({ token, colleges }: { token: string; colleges: College[]
               {viewCampaign.status}
             </span>
           </div>
-
           {subLoading ? (
-            <div className="flex flex-col gap-3">
-              {[1, 2].map((i) => <div key={i} className="brute-card h-24 animate-pulse" />)}
-            </div>
+            <div className="flex flex-col gap-3">{[1,2].map((i) => <div key={i} className="brute-card h-24 animate-pulse" />)}</div>
           ) : submissions.length === 0 ? (
             <BruteCard className="p-8 text-center" accent="none">
-              <p className="font-mono text-sm text-ink/40 uppercase tracking-widest">
-                NO SUBMISSIONS YET
-              </p>
+              <p className="font-mono text-sm text-ink/40 uppercase tracking-widest">NO SUBMISSIONS YET</p>
             </BruteCard>
           ) : (
             <div className="flex flex-col gap-4">
               {submissions.map((sub) => (
-                <SubmissionCard
-                  key={sub.submission_id}
-                  sub={sub}
-                  token={token}
-                  reviewing={reviewing}
-                  onReview={reviewSubmission}
-                />
+                <SubmissionCard key={sub.submission_id} sub={sub} token={token} reviewing={reviewing} onReview={reviewSubmission} />
               ))}
             </div>
           )}
@@ -1351,28 +927,21 @@ function CampaignPanel({ token, colleges }: { token: string; colleges: College[]
 // ── Submission Card ───────────────────────────────────────────
 
 function SubmissionCard({
-  sub,
-  token,
-  reviewing,
-  onReview,
+  sub, token, reviewing, onReview,
 }: {
-  sub:       CampaignSubmission;
-  token:     string;
+  sub: CampaignSubmission;
+  token: string;
   reviewing: string | null;
-  onReview:  (id: string, status: "APPROVED" | "REJECTED", note: string) => void;
+  onReview: (id: string, status: "APPROVED" | "REJECTED", note: string) => void;
 }) {
-  const [noteText, setNoteText] = useState("");
-  const [expanded, setExpanded] = useState(false);
+  const [noteText] = useState("");
 
   const accentMap: Record<string, "acid" | "danger" | "none"> = {
-    PENDING:  "none",
-    APPROVED: "acid",
-    REJECTED: "danger",
+    PENDING: "none", APPROVED: "acid", REJECTED: "danger",
   };
 
   return (
     <BruteCard className="p-4" accent={accentMap[sub.status] ?? "none"}>
-      {/* Row 1 — meta */}
       <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
         <div>
           <p className="font-mono text-sm font-bold uppercase">{sub.title}</p>
@@ -1382,35 +951,28 @@ function SubmissionCard({
         </div>
         <div className="flex items-center gap-2">
           <span className={cn("font-mono text-[10px] px-2 py-1 border-2 border-ink/30 uppercase font-bold", STATUS_COLORS[sub.status])}>
-            {sub.status === "PENDING" ? <Clock size={10} className="inline mr-1" /> : sub.status === "APPROVED" ? <CheckCircle size={10} className="inline mr-1" /> : <XCircle size={10} className="inline mr-1" />}
+            {sub.status === "PENDING" ? <Clock size={10} className="inline mr-1" /> :
+             sub.status === "APPROVED" ? <CheckCircle size={10} className="inline mr-1" /> :
+             <XCircle size={10} className="inline mr-1" />}
             {sub.status}
           </span>
           {sub.reward_granted && (
-            <span className="font-mono text-[10px] px-2 py-0.5 bg-acid text-ink font-bold border-2 border-ink">
-              REWARD GRANTED
-            </span>
+            <span className="font-mono text-[10px] px-2 py-0.5 bg-acid text-ink font-bold border-2 border-ink">REWARD GRANTED</span>
           )}
         </div>
       </div>
-
-      {/* Description */}
       <p className="font-mono text-xs text-ink/80 mb-3 line-clamp-3">{sub.description}</p>
-
-      {/* Files */}
       {sub.encrypted_files.length > 0 && (
         <div className="mb-3">
           <p className="font-mono text-[10px] uppercase text-ink/40 mb-1.5 flex items-center gap-1">
-            <Upload size={10} /> {sub.encrypted_files.length} ENCRYPTED FILE{sub.encrypted_files.length > 1 ? "S" : ""}
+            <Upload size={10} /> {sub.encrypted_files.length} FILE{sub.encrypted_files.length > 1 ? "S" : ""}
           </p>
           <div className="flex flex-wrap gap-2">
             {sub.encrypted_files.map((f) => (
-              <a
-                key={f.storedName}
+              <a key={f.storedName}
                 href={`/api/proxy/files/${f.storedName}?mime=${encodeURIComponent(f.mimeType)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-2.5 py-1.5 border-2 border-ink font-mono text-[10px] uppercase hover:bg-acid/20 transition-colors"
-              >
+                target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 border-2 border-ink font-mono text-[10px] uppercase hover:bg-acid/20 transition-colors">
                 <FileText size={10} />
                 <span className="max-w-[120px] truncate">{f.originalName}</span>
                 <span className="text-ink/40">{fmtBytes(f.size)}</span>
@@ -1419,54 +981,49 @@ function SubmissionCard({
           </div>
         </div>
       )}
-
-      {/* Admin note (if already reviewed) */}
       {sub.admin_note && (
         <div className="mb-3 p-2 bg-ink/5 border-l-4 border-ink/20">
           <p className="font-mono text-[10px] text-ink/50 uppercase mb-0.5">ADMIN NOTE</p>
           <p className="font-mono text-xs">{sub.admin_note}</p>
         </div>
       )}
-
-      {/* Review controls (only for PENDING) */}
       {sub.status === "PENDING" && (
-        <div className="border-t-2 border-ink/10 pt-3 mt-1">
-          <div className="flex items-end gap-2 flex-wrap">
-            <div className="flex-1 min-w-[200px]">
-              <label className="font-mono text-[10px] uppercase text-ink/40 block mb-1">ADMIN NOTE (optional)</label>
-              <input
-                className="brute-input font-mono text-xs w-full"
-                placeholder="Feedback for the student..."
-                value={noteText}
-                onChange={(e) => setNoteText(e.target.value)}
-              />
-            </div>
-            <button
-              disabled={reviewing === sub.submission_id}
-              onClick={() => onReview(sub.submission_id, "APPROVED", noteText)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-emerald text-white border-2 border-ink font-mono text-xs uppercase font-bold hover:opacity-90 transition-opacity min-h-[40px]"
-            >
-              <CheckCircle size={12} />
-              {reviewing === sub.submission_id ? "..." : "APPROVE + REWARD"}
-            </button>
-            <button
-              disabled={reviewing === sub.submission_id}
-              onClick={() => onReview(sub.submission_id, "REJECTED", noteText)}
-              className="btn-danger text-xs py-2 px-3 min-h-[40px]"
-            >
-              <XCircle size={12} />
-              REJECT
-            </button>
-          </div>
-        </div>
+        <SubmissionReview subId={sub.submission_id} reviewing={reviewing} onReview={onReview} />
       )}
     </BruteCard>
   );
 }
 
+function SubmissionReview({
+  subId, reviewing, onReview,
+}: {
+  subId: string;
+  reviewing: string | null;
+  onReview: (id: string, status: "APPROVED" | "REJECTED", note: string) => void;
+}) {
+  const [note, setNote] = useState("");
+  return (
+    <div className="border-t-2 border-ink/10 pt-3 mt-1">
+      <div className="flex items-end gap-2 flex-wrap">
+        <div className="flex-1 min-w-[200px]">
+          <label className="font-mono text-[10px] uppercase text-ink/40 block mb-1">ADMIN NOTE (optional)</label>
+          <input className="brute-input font-mono text-xs w-full" placeholder="Feedback for the student..."
+            value={note} onChange={(e) => setNote(e.target.value)} />
+        </div>
+        <button disabled={reviewing === subId} onClick={() => onReview(subId, "APPROVED", note)}
+          className="flex items-center gap-1.5 px-3 py-2 bg-emerald text-white border-2 border-ink font-mono text-xs uppercase font-bold hover:opacity-90 min-h-[40px]">
+          <CheckCircle size={12} />{reviewing === subId ? "..." : "APPROVE + REWARD"}
+        </button>
+        <button disabled={reviewing === subId} onClick={() => onReview(subId, "REJECTED", note)}
+          className="btn-danger text-xs py-2 px-3 min-h-[40px]">
+          <XCircle size={12} />REJECT
+        </button>
+      </div>
+    </div>
+  );
+}
 
-
-// -- Issues Panel ----------------------------------------------
+// ── Issues Panel ──────────────────────────────────────────────
 
 interface IssueProof {
   interaction_id:  string;
@@ -1490,20 +1047,20 @@ interface Issue {
 }
 
 const ISSUE_STATUS_COLORS: Record<string, string> = {
-  UNRESOLVED:    "bg-amber/20 text-amber",
-  TRENDING:      "bg-acid/20 text-ink",
-  FIX_PROPOSED:  "bg-blue-200 text-blue-800",
-  RESOLVED:      "bg-emerald/20 text-emerald",
-  HIDDEN_JUNK:   "bg-danger/20 text-danger",
+  UNRESOLVED:   "bg-amber/20 text-amber",
+  TRENDING:     "bg-acid/20 text-ink",
+  FIX_PROPOSED: "bg-blue-200 text-blue-800",
+  RESOLVED:     "bg-emerald/20 text-emerald",
+  HIDDEN_JUNK:  "bg-danger/20 text-danger",
 };
 
 function IssuesPanel({ token }: { token: string }) {
-  const [issues,    setIssues]   = useState<Issue[]>([]);
-  const [loading,   setLoading]  = useState(true);
-  const [error,     setError]    = useState<string | null>(null);
-  const [expanded,  setExpanded] = useState<string | null>(null);
-  const [closing,   setClosing]  = useState<string | null>(null);
-  const [filter,    setFilter]   = useState<string>("ALL");
+  const [issues,   setIssues]  = useState<Issue[]>([]);
+  const [loading,  setLoading] = useState(true);
+  const [error,    setError]   = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [closing,  setClosing] = useState<string | null>(null);
+  const [filter,   setFilter]  = useState<string>("ALL");
 
   useEffect(() => {
     setLoading(true);
@@ -1525,23 +1082,17 @@ function IssuesPanel({ token }: { token: string }) {
     }
   }
 
-  const filtered = filter === "ALL"
-    ? issues
-    : issues.filter((i) => i.status === filter);
+  const filtered = filter === "ALL" ? issues : issues.filter((i) => i.status === filter);
 
   return (
     <div>
-      {/* Header + filter */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <h2 className="font-mono font-bold text-sm uppercase">ALL ISSUES ({filtered.length})</h2>
-        <div className="flex border-2 border-ink overflow-hidden text-[10px] font-mono font-bold">
-          {["ALL", "UNRESOLVED", "TRENDING", "FIX_PROPOSED", "RESOLVED", "HIDDEN_JUNK"].map((s) => (
-            <button
-              key={s}
-              onClick={() => setFilter(s)}
+        <div className="flex flex-wrap border-2 border-ink overflow-hidden text-[10px] font-mono font-bold">
+          {["ALL","UNRESOLVED","TRENDING","FIX_PROPOSED","RESOLVED","HIDDEN_JUNK"].map((s) => (
+            <button key={s} onClick={() => setFilter(s)}
               className={cn("px-2 py-1.5 border-r-2 border-ink last:border-r-0 uppercase whitespace-nowrap",
-                filter === s ? "bg-ink text-acid" : "hover:bg-acid/20")}
-            >
+                filter === s ? "bg-ink text-acid" : "hover:bg-acid/20")}>
               {s.replace(/_/g, " ")}
             </button>
           ))}
@@ -1556,9 +1107,7 @@ function IssuesPanel({ token }: { token: string }) {
       )}
 
       {loading ? (
-        <div className="flex flex-col gap-3">
-          {[1, 2, 3].map((i) => <div key={i} className="brute-card h-16 animate-pulse" />)}
-        </div>
+        <div className="flex flex-col gap-3">{[1,2,3].map((i) => <div key={i} className="brute-card h-16 animate-pulse" />)}</div>
       ) : filtered.length === 0 ? (
         <BruteCard className="p-8 text-center" accent="none">
           <p className="font-mono text-xs text-ink/40 uppercase">NO ISSUES MATCH THIS FILTER</p>
@@ -1566,69 +1115,51 @@ function IssuesPanel({ token }: { token: string }) {
       ) : (
         <div className="flex flex-col gap-3">
           {filtered.map((issue) => (
-            <BruteCard
-              key={issue.post_id}
-              className="overflow-hidden"
-              accent={issue.status === "RESOLVED" ? "none" : issue.severity === "CRITICAL" ? "danger" : "none"}
-            >
-              {/* Issue row */}
+            <BruteCard key={issue.post_id} className="overflow-hidden" accent="none">
               <div className="p-3 flex items-start gap-3 flex-wrap">
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <span className={cn("font-mono text-[10px] px-1.5 py-0.5 font-bold uppercase border border-ink/20", ISSUE_STATUS_COLORS[issue.status] ?? "")}>
+                    <span className={cn("font-mono text-[10px] px-1.5 py-0.5 font-bold uppercase border border-ink/20",
+                      ISSUE_STATUS_COLORS[issue.status] ?? "")}>
                       {issue.status.replace(/_/g, " ")}
                     </span>
                     <span className="font-mono text-[10px] text-ink/40 uppercase">{issue.severity}</span>
                     <span className="font-mono text-[10px] text-ink/40 uppercase">{issue.category.replace(/_/g, " ")}</span>
-                    <span className="font-mono text-[10px] text-ink/40">?? {issue.aye_count}</span>
+                    <span className="font-mono text-[10px] text-ink/40">+{issue.aye_count} AYE</span>
                   </div>
                   <p className="font-mono text-sm font-bold uppercase truncate">{issue.title}</p>
                   <p className="font-mono text-[10px] text-ink/40 mt-0.5">
-                    @{issue.ghost_handle} � {issue.college} � {new Date(issue.created_at).toLocaleDateString("en-IN")}
+                    @{issue.ghost_handle} · {issue.college} · {new Date(issue.created_at).toLocaleDateString("en-IN")}
                   </p>
                 </div>
-
-                {/* Actions */}
                 <div className="flex items-center gap-2 shrink-0 flex-wrap">
                   {issue.proofs.length > 0 && (
-                    <button
-                      onClick={() => setExpanded(expanded === issue.post_id ? null : issue.post_id)}
-                      className="font-mono text-[10px] px-2 py-1.5 border-2 border-ink uppercase font-bold hover:bg-acid/20 min-h-[36px]"
-                    >
-                      {expanded === issue.post_id ? "HIDE" : `PROOFS (${issue.proofs.length})`}
+                    <button onClick={() => setExpanded(expanded === issue.post_id ? null : issue.post_id)}
+                      className="font-mono text-[10px] px-2 py-1.5 border-2 border-ink uppercase font-bold hover:bg-acid/20 min-h-[36px]">
+                      {expanded === issue.post_id ? "HIDE PROOFS" : `PROOFS (${issue.proofs.length})`}
                     </button>
                   )}
                   {issue.status !== "RESOLVED" && (
-                    <button
-                      onClick={() => setStatus(issue.post_id, "RESOLVED")}
-                      disabled={closing === issue.post_id}
-                      className="font-mono text-[10px] px-2 py-1.5 border-2 border-emerald text-emerald uppercase font-bold hover:bg-emerald hover:text-white transition-colors min-h-[36px]"
-                    >
-                      {closing === issue.post_id ? "..." : "? CLOSE"}
+                    <button onClick={() => setStatus(issue.post_id, "RESOLVED")} disabled={closing === issue.post_id}
+                      className="font-mono text-[10px] px-2 py-1.5 border-2 border-emerald text-emerald uppercase font-bold hover:bg-emerald hover:text-white transition-colors min-h-[36px]">
+                      {closing === issue.post_id ? "..." : "CLOSE"}
                     </button>
                   )}
                   {issue.status !== "HIDDEN_JUNK" && (
-                    <button
-                      onClick={() => setStatus(issue.post_id, "HIDDEN_JUNK")}
-                      disabled={closing === issue.post_id}
-                      className="font-mono text-[10px] px-2 py-1.5 border-2 border-ink uppercase font-bold hover:bg-danger hover:text-white transition-colors min-h-[36px]"
-                    >
+                    <button onClick={() => setStatus(issue.post_id, "HIDDEN_JUNK")} disabled={closing === issue.post_id}
+                      className="font-mono text-[10px] px-2 py-1.5 border-2 border-ink uppercase font-bold hover:bg-danger hover:text-white transition-colors min-h-[36px]">
                       HIDE
                     </button>
                   )}
                   {issue.status === "RESOLVED" && (
-                    <button
-                      onClick={() => setStatus(issue.post_id, "UNRESOLVED")}
-                      disabled={closing === issue.post_id}
-                      className="font-mono text-[10px] px-2 py-1.5 border-2 border-ink/30 uppercase font-bold hover:bg-ink/10 transition-colors min-h-[36px]"
-                    >
+                    <button onClick={() => setStatus(issue.post_id, "UNRESOLVED")} disabled={closing === issue.post_id}
+                      className="font-mono text-[10px] px-2 py-1.5 border-2 border-ink/30 uppercase font-bold hover:bg-ink/10 transition-colors min-h-[36px]">
                       REOPEN
                     </button>
                   )}
                 </div>
               </div>
 
-              {/* Proofs expander */}
               {expanded === issue.post_id && issue.proofs.length > 0 && (
                 <div className="border-t-2 border-ink bg-ink/5 p-3 flex flex-col gap-3">
                   <p className="font-mono text-[10px] uppercase text-ink/50 font-bold">CROWD PROOFS</p>
@@ -1639,12 +1170,12 @@ function IssuesPanel({ token }: { token: string }) {
                         const parsed = JSON.parse(proof.proof_media_url);
                         if (Array.isArray(parsed)) files = parsed;
                       }
-                    } catch { /* plain URL string, not JSON */ }
+                    } catch { /* plain string URL, not JSON */ }
 
                     return (
                       <div key={proof.interaction_id} className="border-2 border-ink/20 bg-paper p-3">
                         <p className="font-mono text-[10px] text-ink/50 uppercase mb-2">
-                          @{proof.user.ghost_handle} � {new Date(proof.created_at).toLocaleDateString("en-IN")}
+                          @{proof.user.ghost_handle} · {new Date(proof.created_at).toLocaleDateString("en-IN")}
                         </p>
                         {proof.comment_text && (
                           <p className="font-mono text-xs mb-2">{proof.comment_text}</p>
@@ -1652,24 +1183,18 @@ function IssuesPanel({ token }: { token: string }) {
                         {files.length > 0 ? (
                           <div className="flex flex-wrap gap-2">
                             {files.map((f) => (
-                              <a
-                                key={f.storedName}
+                              <a key={f.storedName}
                                 href={`/api/proxy/files/${f.storedName}?mime=${encodeURIComponent(f.mimeType)}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-1 px-2 py-1 border-2 border-ink font-mono text-[10px] uppercase hover:bg-acid/20 transition-colors"
-                              >
-                                ?? {f.originalName || f.storedName.slice(0, 12)}
+                                target="_blank" rel="noopener noreferrer"
+                                className="flex items-center gap-1 px-2 py-1 border-2 border-ink font-mono text-[10px] uppercase hover:bg-acid/20 transition-colors">
+                                <FileText size={10} />
+                                {f.originalName || f.storedName.slice(0, 12)}
                               </a>
                             ))}
                           </div>
                         ) : proof.proof_media_url ? (
-                          <a
-                            href={proof.proof_media_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="font-mono text-[10px] text-acid underline break-all"
-                          >
+                          <a href={proof.proof_media_url} target="_blank" rel="noopener noreferrer"
+                            className="font-mono text-[10px] text-acid underline break-all">
                             {proof.proof_media_url}
                           </a>
                         ) : (
@@ -1687,4 +1212,3 @@ function IssuesPanel({ token }: { token: string }) {
     </div>
   );
 }
-

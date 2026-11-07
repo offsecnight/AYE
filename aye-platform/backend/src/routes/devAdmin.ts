@@ -342,7 +342,7 @@ router.patch("/issues/:id/status", asyncHandler(async (req: Request, res: Respon
     where: { post_id: req.params.id },
     data: {
       status:      status as import("@prisma/client").ExperienceStatus,
-      resolved_at: status === "RESOLVED" ? new Date() : undefined,
+      resolved_at: status === "RESOLVED" ? new Date() : null,
     },
   });
 

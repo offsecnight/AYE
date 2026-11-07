@@ -107,8 +107,5 @@ async function proxy(
 
 // Disable Next.js body parsing — we forward the raw stream to the backend.
 // Without this, Next.js consumes the multipart body before our handler sees it.
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
