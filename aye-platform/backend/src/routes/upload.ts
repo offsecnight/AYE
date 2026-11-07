@@ -82,7 +82,7 @@ router.post(
     }[] = [];
 
     for (const file of files) {
-      const storedName = await saveEncryptedFile(file.buffer, UPLOAD_DIR);
+      const storedName = await saveEncryptedFile(file.buffer, UPLOAD_DIR, req);
       results.push({
         storedName,
         originalName: file.originalname,
@@ -129,7 +129,7 @@ router.get(
     }
 
     try {
-      const decrypted = await readDecryptedFile(storedName, UPLOAD_DIR);
+      const decrypted = await readDecryptedFile(storedName, UPLOAD_DIR, req);
       res.setHeader("Content-Type", mimeType);
       res.setHeader("Content-Length", decrypted.length.toString());
       res.setHeader("Cache-Control", "private, no-store");

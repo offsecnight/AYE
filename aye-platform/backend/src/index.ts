@@ -122,7 +122,9 @@ process.on("uncaughtException", (err) => {
 });
 
 // ── Start ──────────────────────────────────────────────────────
-const PORT = parseInt(process.env.PORT ?? "4000", 10);
+// On Catalyst AppSail, the platform injects X_ZOHO_CATALYST_LISTEN_PORT.
+// Always use it (fall back to PORT env, then 4000 for local dev).
+const PORT = parseInt(process.env.X_ZOHO_CATALYST_LISTEN_PORT ?? process.env.PORT ?? "4000", 10);
 server.listen(PORT, () => {
   console.log(`\n🔥 AYE Platform Backend running on http://localhost:${PORT}`);
   console.log(`📖 Swagger UI: http://localhost:${PORT}/api-docs`);

@@ -1,5 +1,5 @@
 /**
- * AES-256-GCM file encryption service.
+ * AES-256-GCM file encryption service backed by Catalyst Stratus.
  *
  * Each file is encrypted with a unique 16-byte IV derived from
  * ENCRYPTION_KEY (env var). The encrypted content is stored as:
@@ -8,15 +8,21 @@
  *
  * This layout lets us decrypt without storing anything in the DB —
  * everything needed is self-contained in the file blob.
+ *
+ * Files are stored in Catalyst Stratus (object storage) instead of
+ * the local filesystem, which is not durable on AppSail.
  */
 
 import crypto from "crypto";
-import fs     from "fs";
-import path   from "path";
+import { Request } from "express";
+import { PrismaClient } from "@prisma/client";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH  = 16; // bytes — randomised per file
 const TAG_LENGTH = 16; // GCM auth tag length in bytes
+
+/** Stratus bucket name — create this bucket in Catalyst Console first. */
+const STRATUS_BUCKET = process.env.STRATUS_BUCKET ?? "aye-uploads";
 
 /** Derive a 32-byte key from the env secret. */
 function getKey(): Buffer {
@@ -55,42 +61,63 @@ export function decryptBuffer(blob: Buffer): Buffer {
   return Buffer.concat([decipher.update(ciphertext), decipher.final()]);
 }
 
+/** Initialize Catalyst SDK with admin scope for Stratus operations. */
+function getStratusBucket(req?: Request) {
+  const catalyst = require("zcatalyst-sdk-node");
+  const app = catalyst.initialize(req, { scope: "admin" });
+  return app.stratus().bucket(STRATUS_BUCKET);
+}
+
 /**
- * Write an encrypted file to disk.
+ * Write an encrypted file to Catalyst Stratus.
  * Returns the stored filename (UUID-based, no extension leak).
  */
 export async function saveEncryptedFile(
   fileBuffer: Buffer,
-  uploadDir: string
+  _uploadDir?: string, // kept for signature compatibility; Stratus ignores it
+  req?: Request
 ): Promise<string> {
   const storedName = `${crypto.randomUUID()}.enc`;
-  const fullPath   = path.join(uploadDir, storedName);
-
   const encrypted  = encryptBuffer(fileBuffer);
-  await fs.promises.writeFile(fullPath, encrypted);
+
+  const bucket = getStratusBucket(req);
+  await bucket.putObject(`uploads/${storedName}`, encrypted, {
+    overwrite: true,
+    metaData: { encrypted: "true", algorithm: ALGORITHM },
+  });
 
   return storedName;
 }
 
 /**
- * Read and decrypt a file from disk.
+ * Read and decrypt a file from Catalyst Stratus.
  */
 export async function readDecryptedFile(
   storedName: string,
-  uploadDir: string
+  _uploadDir?: string,
+  req?: Request
 ): Promise<Buffer> {
-  const fullPath = path.join(uploadDir, storedName);
-  const blob     = await fs.promises.readFile(fullPath);
+  const bucket = getStratusBucket(req);
+  const stream = await bucket.getObject(`uploads/${storedName}`);
+
+  // Collect stream into a Buffer
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  const blob = Buffer.concat(chunks);
+
   return decryptBuffer(blob);
 }
 
 /**
- * Delete an encrypted file from disk (best-effort).
+ * Delete an encrypted file from Catalyst Stratus (best-effort).
  */
 export async function deleteEncryptedFile(
   storedName: string,
-  uploadDir: string
+  _uploadDir?: string,
+  req?: Request
 ): Promise<void> {
-  const fullPath = path.join(uploadDir, storedName);
-  await fs.promises.unlink(fullPath).catch(() => {/* already gone */});
+  const bucket = getStratusBucket(req);
+  await bucket.deleteObject(`uploads/${storedName}`).catch(() => {/* already gone */});
 }

@@ -51,6 +51,11 @@ async function proxy(
   // Build forwarded headers
   const headers: Record<string, string> = {};
 
+  // Strip Accept-Encoding to avoid ERR_CONTENT_DECODING_FAILED when the
+  // backend sends gzip/brotli that the proxy re-encodes. The browser will
+  // request compression from the Slate frontend directly.
+  headers["Accept-Encoding"] = "identity";
+
   // For multipart: forward the original Content-Type (includes boundary).
   // For everything else: force application/json.
   if (isMultipart) {
