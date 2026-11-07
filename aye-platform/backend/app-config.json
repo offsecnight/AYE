@@ -7,7 +7,7 @@
     "NODE_ENV": "production",
     "JWT_SECRET": "aye-platform-dev-secret-change-in-production-2024",
     "JWT_EXPIRES_IN": "7d",
-    "DATABASE_URL": "postgresql://postgres:Jeevan1434%40@db.yhxkmhrszchxgbdhiusp.supabase.co:5432/postgres",
+    "DATABASE_URL": "postgresql://postgres.yhxkmhrszchxgbdhiusp:Jeevan1434%40@aws-0-ap-south-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1",
     "FRONTEND_URL": "https://aye.onslate.in",
     "UPLOAD_DIR": "./uploads",
     "MAX_FILE_SIZE_MB": "50",
