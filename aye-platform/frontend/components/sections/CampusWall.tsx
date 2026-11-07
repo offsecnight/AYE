@@ -22,47 +22,63 @@ export function CampusWall() {
   const [categoryFilter, setCategory]    = useState<string | null>(null);
   const [sort,           setSort]        = useState<"ayes" | "newest" | "oldest_unresolved">("ayes");
   const [showDrop,       setDrop]        = useState(false);
-  // initialLoading = true only on first fetch — background polls don't show skeleton
   const [initialLoading, setInitialLoading] = useState(true);
   const [error,          setError]       = useState<string | null>(null);
 
   // Track which post_ids the user has AYE'd — survives background refreshes
   const [ayedPosts, setAyedPosts] = useState<Set<string>>(new Set());
 
-  const isFirstFetch = useRef(true);
+  // Keep current filter/sort values accessible inside interval without recreating it
+  const filtersRef = useRef({ token: user?.token, statusFilter, categoryFilter, sort });
+  useEffect(() => {
+    filtersRef.current = { token: user?.token, statusFilter, categoryFilter, sort };
+  }, [user?.token, statusFilter, categoryFilter, sort]);
 
   const fetchExperiences = useCallback(async (silent = false) => {
-    if (!user?.token) return;
+    const { token, statusFilter: sf, categoryFilter: cf, sort: so } = filtersRef.current;
+    if (!token) return;
     if (!silent) setInitialLoading(true);
     setError(null);
     try {
-      const params: Record<string, string> = { sort };
-      if (statusFilter !== "ALL") params.status = statusFilter;
-      if (categoryFilter)         params.category = categoryFilter;
-      const res = await experiencesApi.list(params, user.token) as { experiences: ExperiencePublic[] };
-      setExperiences(res.experiences);
+      const params: Record<string, string> = { sort: so };
+      if (sf !== "ALL") params.status = sf;
+      if (cf)           params.category = cf;
+      const res = await experiencesApi.list(params, token) as { experiences: ExperiencePublic[] };
+      // Stable update: only replace array if content actually changed (avoids unnecessary re-renders)
+      setExperiences((prev) => {
+        const incoming = res.experiences;
+        if (
+          prev.length === incoming.length &&
+          prev.every((p, i) =>
+            p.post_id === incoming[i].post_id &&
+            p.aye_count === incoming[i].aye_count &&
+            p.status === incoming[i].status
+          )
+        ) {
+          return prev; // nothing changed — return same reference, no re-render
+        }
+        return incoming;
+      });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load experiences");
     } finally {
       setInitialLoading(false);
-      isFirstFetch.current = false;
     }
-  }, [user?.token, statusFilter, categoryFilter, sort]);
+  }, []); // stable — no deps, reads from ref
 
+  // Fetch on filter/sort change
   useEffect(() => {
     if (!user) { router.push("/auth"); return; }
-    isFirstFetch.current = true;
     fetchExperiences(false);
-  }, [user, fetchExperiences, router]);
+  }, [user, router, fetchExperiences, statusFilter, categoryFilter, sort]);
 
-  // Silent background poll every 15s — no loading flash, no remount
+  // Silent background poll every 20s — stable interval, never recreated
   useEffect(() => {
-    if (!user?.token) return;
     const interval = setInterval(() => {
-      fetchExperiences(true); // silent = true
-    }, 15000);
+      fetchExperiences(true);
+    }, 20000);
     return () => clearInterval(interval);
-  }, [user?.token, fetchExperiences]);
+  }, [fetchExperiences]); // fetchExperiences is stable (no deps)
 
   const handleAyeToggle = useCallback((postId: string, nowAyed: boolean) => {
     setAyedPosts((prev) => {
@@ -77,7 +93,7 @@ export function CampusWall() {
 
   return (
     <div>
-      {/* HEADER — stacks on mobile */}
+      {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-6">
         <div className="min-w-0">
           <div className="section-label mb-2">CAMPUS / WALL</div>
@@ -104,9 +120,8 @@ export function CampusWall() {
         </div>
       </div>
 
-      {/* FILTER BAR — sticky below ticker (32px) + navbar (56px) */}
+      {/* FILTER BAR */}
       <div className="sticky top-[88px] z-30 bg-paper border-b-3 border-ink -mx-4 px-4 py-3 mb-6">
-        {/* Status row + sort */}
         <div className="flex gap-2 mb-2 flex-wrap items-center">
           {STATUS_FILTERS.map((s) => (
             <button
@@ -114,9 +129,7 @@ export function CampusWall() {
               onClick={() => setStatus(s)}
               className={cn(
                 "chip-btn",
-                statusFilter === s
-                  ? "bg-ink text-acid"
-                  : "bg-paper text-ink"
+                statusFilter === s ? "bg-ink text-acid" : "bg-paper text-ink"
               )}
             >
               {s.replace("_", " ")}
@@ -133,15 +146,10 @@ export function CampusWall() {
             <option value="oldest_unresolved">OLDEST</option>
           </select>
         </div>
-
-        {/* Category chips — scroll horizontally on mobile */}
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none -mx-4 px-4">
           <button
             onClick={() => setCategory(null)}
-            className={cn(
-              "chip-btn shrink-0",
-              !categoryFilter ? "bg-acid text-ink" : "bg-paper text-ink"
-            )}
+            className={cn("chip-btn shrink-0", !categoryFilter ? "bg-acid text-ink" : "bg-paper text-ink")}
           >
             ALL
           </button>
@@ -149,10 +157,7 @@ export function CampusWall() {
             <button
               key={c}
               onClick={() => setCategory(c === categoryFilter ? null : c)}
-              className={cn(
-                "chip-btn shrink-0",
-                categoryFilter === c ? "bg-acid text-ink" : "bg-paper text-ink"
-              )}
+              className={cn("chip-btn shrink-0", categoryFilter === c ? "bg-acid text-ink" : "bg-paper text-ink")}
             >
               {c.replace(/_/g, " ")}
             </button>
@@ -165,22 +170,22 @@ export function CampusWall() {
         <div className="brute-card p-4 mb-4 flex items-center gap-3 border-t-4 border-danger">
           <AlertCircle size={16} className="text-danger shrink-0" />
           <p className="font-mono text-sm text-danger uppercase flex-1 min-w-0 break-words">{error}</p>
-          <button onClick={fetchExperiences} className="btn-secondary text-xs py-1 px-3 shrink-0">
+          <button onClick={() => fetchExperiences(false)} className="btn-secondary text-xs py-1 px-3 shrink-0">
             RETRY
           </button>
         </div>
       )}
 
-      {/* LOADING — only on first fetch, not background polls */}
+      {/* LOADING — only on first fetch */}
       {initialLoading && (
         <div className="flex flex-col gap-5">
-          {[1,2,3].map((i) => (
+          {[1, 2, 3].map((i) => (
             <div key={i} className="brute-card p-6 h-48 animate-pulse bg-ink/5" />
           ))}
         </div>
       )}
 
-      {/* FEED */}
+      {/* FEED — always mounted once loaded, never unmounts on bg poll */}
       {!initialLoading && (
         <div className="flex flex-col gap-5">
           {experiences.length === 0 ? (
@@ -209,11 +214,11 @@ export function CampusWall() {
         <DropExperienceModal
           token={user.token}
           onClose={() => setDrop(false)}
-          onSuccess={() => { setDrop(false); fetchExperiences(); }}
+          onSuccess={() => { setDrop(false); fetchExperiences(false); }}
         />
       )}
 
-      {/* ── CAMPAIGNS ─────────────────────────────────── */}
+      {/* CAMPAIGNS */}
       <div className="mt-8">
         <CampaignBoard />
       </div>
