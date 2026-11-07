@@ -9,9 +9,17 @@ const JWT_SECRET = process.env.JWT_SECRET ?? "change-me";
 
 export function initSocket(httpServer: HttpServer): SocketServer {
   const io = new SocketServer(httpServer, {
+    // Allow both transports — clients on AppSail will use polling only,
+    // local dev clients will use websocket. Server supports both.
+    transports: ["polling", "websocket"],
+    // Longer ping timeouts for cloud environments with higher latency
+    pingInterval: 25000,
+    pingTimeout:  60000,
+    // Increase polling duration to reduce request frequency
+    maxHttpBufferSize: 1e6,
     cors: {
       origin: (origin, callback) => {
-        // Accept any origin for Socket.io — the JWT auth is the real gate
+        // Accept any origin — JWT auth is the real security gate
         callback(null, true);
       },
       credentials: true,

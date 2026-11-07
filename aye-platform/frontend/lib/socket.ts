@@ -28,14 +28,22 @@ export function getSocket(token: string): Socket {
       ? `${window.location.protocol}//${window.location.host}`
       : "http://localhost:3000");
 
+  // Detect if we're on the cloud (AppSail) vs local dev.
+  // AppSail's reverse proxy drops WebSocket upgrade requests, so we must
+  // use polling transport only. Locally, websocket works fine via server.js.
+  const isCloud = !!process.env.NEXT_PUBLIC_SOCKET_URL;
+
   socket = io(origin, {
     path:       "/socket.io",
     auth:       { token },
-    transports: ["websocket", "polling"],
+    // Cloud (AppSail): polling only — AppSail proxy drops WSS upgrades.
+    // Local dev: try websocket first, fall back to polling.
+    transports: isCloud ? ["polling"] : ["websocket", "polling"],
+    upgrade:    !isCloud, // don't attempt upgrade on cloud
     reconnection:        true,
-    reconnectionDelay:   1500,
-    reconnectionAttempts: 15,
-    timeout:    10000,
+    reconnectionDelay:   2000,
+    reconnectionAttempts: 20,
+    timeout:    15000,
   });
 
   socket.on("connect", () =>
