@@ -175,10 +175,24 @@ export function AyeLounge() {
     socket.on("disconnect", onDisconnect);
     setConnected(socket.connected);
 
-    // Incoming messages
+    // Incoming messages — replace matching optimistic message or append
     const onMessage = (msg: ChatMessage) => {
       setMessages((prev) => {
+        // Already have the real message
         if (prev.some((m) => m.msg_id === msg.msg_id)) return prev;
+        // Replace the oldest optimistic message with matching content+sender
+        const optimisticIdx = prev.findIndex(
+          (m) =>
+            m.msg_id.startsWith("optimistic-") &&
+            m.content       === msg.content &&
+            m.room_id       === msg.room_id &&
+            m.send_as_ghost === msg.send_as_ghost
+        );
+        if (optimisticIdx !== -1) {
+          const next = [...prev];
+          next[optimisticIdx] = msg;
+          return next;
+        }
         return [...prev, msg];
       });
     };
@@ -220,6 +234,18 @@ export function AyeLounge() {
       const text = input.trim();
       if (!text || !activeRoom || !socketRef.current) return;
 
+      // Optimistic update — show immediately before server confirms
+      const optimisticMsg: ChatMessage = {
+        msg_id:        `optimistic-${Date.now()}`,
+        room_id:       activeRoom.room_id,
+        sender_handle: user?.ghost_handle ?? "",
+        content:       text,
+        send_as_ghost: asGhost,
+        media_url:     null,
+        created_at:    new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, optimisticMsg]);
+
       socketRef.current.emit("message:send", {
         room_id:       activeRoom.room_id,
         content:       text,
@@ -229,7 +255,7 @@ export function AyeLounge() {
       setInput("");
       inputRef.current?.focus();
     },
-    [input, activeRoom, asGhost]
+    [input, activeRoom, asGhost, user?.ghost_handle]
   );
 
   // Send on Enter (Shift+Enter = newline not needed since single-line)
