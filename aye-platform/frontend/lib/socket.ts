@@ -19,26 +19,22 @@ export function getSocket(token: string): Socket {
 
   currentToken = token;
 
-  // If NEXT_PUBLIC_SOCKET_URL is set (Slate/cloud deploy), connect directly
-  // to the AppSail backend — Slate has no Node.js process to proxy WebSockets.
-  // In local dev with server.js running, leave it unset to use same-origin proxy.
+  // Always connect to the same origin as the frontend (Slate URL in prod,
+  // localhost:3000 in dev). Next.js rewrites proxy /socket.io/* → backend.
+  // This avoids cross-origin CORS issues AND sticky-session failures caused
+  // by AppSail's multi-instance load balancer.
   const origin =
-    process.env.NEXT_PUBLIC_SOCKET_URL ||
-    (typeof window !== "undefined"
+    typeof window !== "undefined"
       ? `${window.location.protocol}//${window.location.host}`
-      : "http://localhost:3000");
+      : "http://localhost:3000";
 
-  // Detect if we're on the cloud (AppSail) vs local dev.
-  // AppSail's reverse proxy drops WebSocket upgrade requests, so we must
-  // use polling transport only. Locally, websocket works fine via server.js.
-  const isCloud = !!process.env.NEXT_PUBLIC_SOCKET_URL;
-
+  // Always use polling — AppSail's reverse proxy drops WebSocket upgrade
+  // requests, and Slate's rewrite proxy is HTTP-only (no WS tunnel).
   socket = io(origin, {
     path:       "/socket.io",
     auth:       { token },
-    transports: isCloud ? ["polling"] : ["websocket", "polling"],
-    upgrade:    false, // never upgrade — AppSail proxy drops WSS
-    // Short intervals to match server config — keeps requests within proxy timeout
+    transports: ["polling"],
+    upgrade:    false,
     reconnection:        true,
     reconnectionDelay:   3000,
     reconnectionAttempts: 20,
