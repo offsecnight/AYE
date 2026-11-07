@@ -31,10 +31,11 @@ export function getSocket(token: string): Socket {
   // Always use polling — AppSail's reverse proxy drops WebSocket upgrade
   // requests, and Slate's rewrite proxy is HTTP-only (no WS tunnel).
   socket = io(origin, {
-    path:       "/socket.io",
-    auth:       { token },
-    transports: ["polling"],
-    upgrade:    false,
+    path:              "/socket.io",
+    auth:              { token },
+    transports:        ["polling"],
+    upgrade:           false,
+    withCredentials:   true,   // send zalb_ sticky-session cookie back to AppSail
     reconnection:        true,
     reconnectionDelay:   3000,
     reconnectionAttempts: 20,
