@@ -6,12 +6,15 @@ let socket: Socket | null = null;
 let currentToken: string | null = null;
 
 export function getSocket(token: string): Socket {
-  // Reuse if already connected with same token
-  if (socket && currentToken === token && socket.connected) {
+  // Reuse if same token and socket exists (connected OR still connecting).
+  // Checking only `socket.connected` caused a second socket to be created
+  // during the handshake window — leading to two connect events in one tab
+  // and the old socket (which had joined the college room) being discarded.
+  if (socket && currentToken === token) {
     return socket;
   }
 
-  // Disconnect old socket if token changed
+  // Token changed — tear down old socket cleanly
   if (socket) {
     socket.disconnect();
     socket = null;
@@ -19,23 +22,17 @@ export function getSocket(token: string): Socket {
 
   currentToken = token;
 
-  // Always connect to the same origin as the frontend (Slate URL in prod,
-  // localhost:3000 in dev). Next.js rewrites proxy /socket.io/* → backend.
-  // This avoids cross-origin CORS issues AND sticky-session failures caused
-  // by AppSail's multi-instance load balancer.
   const origin =
     typeof window !== "undefined"
       ? `${window.location.protocol}//${window.location.host}`
       : "http://localhost:3000";
 
-  // Always use polling — AppSail's reverse proxy drops WebSocket upgrade
-  // requests, and Slate's rewrite proxy is HTTP-only (no WS tunnel).
   socket = io(origin, {
     path:              "/socket.io",
     auth:              { token },
     transports:        ["polling"],
     upgrade:           false,
-    withCredentials:   true,   // send zalb_ sticky-session cookie back to AppSail
+    withCredentials:   true,
     reconnection:        true,
     reconnectionDelay:   3000,
     reconnectionAttempts: 20,
