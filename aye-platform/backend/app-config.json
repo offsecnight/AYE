@@ -1,0 +1,18 @@
+{
+  "command": "node dist/index.js",
+  "stack": "node20",
+  "memory": 512,
+  "build_path": "./",
+  "env_variables": {
+    "NODE_ENV": "production",
+    "JWT_SECRET": "aye-platform-dev-secret-change-in-production-2024",
+    "JWT_EXPIRES_IN": "7d",
+    "DATABASE_URL": "postgresql://postgres:Jeevan1434%40@db.yhxkmhrszchxgbdhiusp.supabase.co:5432/postgres",
+    "FRONTEND_URL": "https://aye.onslate.in",
+    "UPLOAD_DIR": "./uploads",
+    "MAX_FILE_SIZE_MB": "50",
+    "ENCRYPTION_KEY": "aye-platform-file-enc-key-change-in-prod-2024",
+    "STRATUS_BUCKET": "aye-uploads-development"
+  },
+  "catalyst_auth": false
+}
