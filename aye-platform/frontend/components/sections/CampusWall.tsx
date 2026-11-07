@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, RefreshCw, AlertCircle } from "lucide-react";
 import { ExperienceCard }       from "@/components/cards/ExperienceCard";
@@ -22,12 +22,18 @@ export function CampusWall() {
   const [categoryFilter, setCategory]    = useState<string | null>(null);
   const [sort,           setSort]        = useState<"ayes" | "newest" | "oldest_unresolved">("ayes");
   const [showDrop,       setDrop]        = useState(false);
-  const [loading,        setLoading]     = useState(false);
+  // initialLoading = true only on first fetch — background polls don't show skeleton
+  const [initialLoading, setInitialLoading] = useState(true);
   const [error,          setError]       = useState<string | null>(null);
 
-  const fetchExperiences = useCallback(async () => {
+  // Track which post_ids the user has AYE'd — survives background refreshes
+  const [ayedPosts, setAyedPosts] = useState<Set<string>>(new Set());
+
+  const isFirstFetch = useRef(true);
+
+  const fetchExperiences = useCallback(async (silent = false) => {
     if (!user?.token) return;
-    setLoading(true);
+    if (!silent) setInitialLoading(true);
     setError(null);
     try {
       const params: Record<string, string> = { sort };
@@ -38,23 +44,34 @@ export function CampusWall() {
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load experiences");
     } finally {
-      setLoading(false);
+      setInitialLoading(false);
+      isFirstFetch.current = false;
     }
   }, [user?.token, statusFilter, categoryFilter, sort]);
 
   useEffect(() => {
     if (!user) { router.push("/auth"); return; }
-    fetchExperiences();
+    isFirstFetch.current = true;
+    fetchExperiences(false);
   }, [user, fetchExperiences, router]);
 
-  // Auto-refresh every 15 seconds so new experiences appear for all users
+  // Silent background poll every 15s — no loading flash, no remount
   useEffect(() => {
     if (!user?.token) return;
     const interval = setInterval(() => {
-      fetchExperiences();
+      fetchExperiences(true); // silent = true
     }, 15000);
     return () => clearInterval(interval);
   }, [user?.token, fetchExperiences]);
+
+  const handleAyeToggle = useCallback((postId: string, nowAyed: boolean) => {
+    setAyedPosts((prev) => {
+      const next = new Set(prev);
+      if (nowAyed) next.add(postId);
+      else         next.delete(postId);
+      return next;
+    });
+  }, []);
 
   if (!user) return null;
 
@@ -71,11 +88,11 @@ export function CampusWall() {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
-            onClick={fetchExperiences}
+            onClick={() => fetchExperiences(false)}
             className="min-w-[48px] min-h-[48px] flex items-center justify-center border-3 border-ink bg-white shadow-brutal"
             aria-label="Refresh"
           >
-            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+            <RefreshCw size={14} className={initialLoading ? "animate-spin" : ""} />
           </button>
           <button
             className="btn-primary"
@@ -154,8 +171,8 @@ export function CampusWall() {
         </div>
       )}
 
-      {/* LOADING */}
-      {loading && (
+      {/* LOADING — only on first fetch, not background polls */}
+      {initialLoading && (
         <div className="flex flex-col gap-5">
           {[1,2,3].map((i) => (
             <div key={i} className="brute-card p-6 h-48 animate-pulse bg-ink/5" />
@@ -164,7 +181,7 @@ export function CampusWall() {
       )}
 
       {/* FEED */}
-      {!loading && (
+      {!initialLoading && (
         <div className="flex flex-col gap-5">
           {experiences.length === 0 ? (
             <div className="brute-card p-12 text-center">
@@ -178,7 +195,9 @@ export function CampusWall() {
                 key={exp.post_id}
                 experience={exp}
                 token={user.token}
-                onUpdate={fetchExperiences}
+                initialAyed={ayedPosts.has(exp.post_id)}
+                onAyeToggle={handleAyeToggle}
+                onUpdate={() => fetchExperiences(true)}
               />
             ))
           )}

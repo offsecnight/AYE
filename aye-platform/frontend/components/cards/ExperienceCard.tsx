@@ -14,9 +14,11 @@ import { playAyeSound } from "@/lib/sounds";
 const API_BASE = "/api/proxy";
 
 interface Props {
-  experience: ExperiencePublic;
-  token:      string;
-  onUpdate?:  () => void;
+  experience:  ExperiencePublic;
+  token:       string;
+  initialAyed?: boolean;
+  onAyeToggle?: (postId: string, nowAyed: boolean) => void;
+  onUpdate?:   () => void;
 }
 
 // ── Tiny file uploader (same pattern as CampaignBoard) ────────
@@ -252,9 +254,9 @@ function FixPanel({ postId, token, onDone }: { postId: string; token: string; on
 }
 
 // ── Main Card ─────────────────────────────────────────────────
-export function ExperienceCard({ experience: e, token, onUpdate }: Props) {
+export function ExperienceCard({ experience: e, token, initialAyed = false, onAyeToggle, onUpdate }: Props) {
   const [ayeCount,  setAye]     = useState(e.aye_count);
-  const [ayeActive, setAyeAct]  = useState(false);
+  const [ayeActive, setAyeAct]  = useState(initialAyed);
   const [flagged,   setFlagged] = useState(false);
   const [loadAye,   setLoadAye] = useState(false);
   const [loadJunk,  setLoadJnk] = useState(false);
@@ -267,9 +269,11 @@ export function ExperienceCard({ experience: e, token, onUpdate }: Props) {
     if (e.post_id !== prevPostId.current) {
       prevPostId.current = e.post_id;
       setAye(e.aye_count);
-      setAyeAct(false);
+      setAyeAct(initialAyed);
     }
-  }, [e.post_id, e.aye_count]);
+    // On background refresh, only update count if user hasn't interacted
+    // (ayeActive matches initialAyed means no local interaction yet)
+  }, [e.post_id, e.aye_count, initialAyed]);
 
   const isResolved  = e.status === "RESOLVED";
   const isTrending  = e.status === "TRENDING";
@@ -286,8 +290,10 @@ export function ExperienceCard({ experience: e, token, onUpdate }: Props) {
       const res = await experiencesApi.aye(e.post_id, token) as { action: string; aye_count: number };
       // Use server's authoritative count
       setAye(res.aye_count);
-      setAyeAct(res.action === "added");
-      if (res.action === "added") playAyeSound();
+      const nowAyed = res.action === "added";
+      setAyeAct(nowAyed);
+      onAyeToggle?.(e.post_id, nowAyed);
+      if (nowAyed) playAyeSound();
       // Don't call onUpdate() here — it remounts the card and resets local state
     } catch {
       // Rollback on error
@@ -414,7 +420,9 @@ export function ExperienceCard({ experience: e, token, onUpdate }: Props) {
           aria-pressed={ayeActive}
           className={cn(
             "flex items-center gap-2 px-3 py-3 font-mono text-xs font-bold uppercase tracking-wider flex-1 justify-center min-h-[48px] transition-colors duration-75",
-            ayeActive ? "bg-acid text-ink" : "bg-paper text-ink"
+            ayeActive
+              ? "bg-emerald text-white border-emerald"
+              : "bg-paper text-ink hover:bg-acid/20"
           )}
         >
           <ThumbsUp size={14} />
