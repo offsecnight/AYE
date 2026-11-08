@@ -13,8 +13,15 @@
 
 import { createClient, SupabaseClient, RealtimeChannel } from "@supabase/supabase-js";
 
-const SUPABASE_URL      = process.env.NEXT_PUBLIC_SUPABASE_URL      ?? "";
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+// Supabase anon key is a publishable key — safe to include in browser JS.
+// Catalyst AppSail injects env vars at runtime, AFTER Next.js builds the bundle,
+// so NEXT_PUBLIC_* are empty at build time. We hardcode the values here as fallback.
+const SUPABASE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL ??
+  "https://yhxkmhrszchxgbdhiusp.supabase.co";
+const SUPABASE_ANON_KEY =
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InloeGttaHJzemNoeGdiZGhpdXNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQwNDEwMjksImV4cCI6MjEwOTYxNzAyOX0.JiC7toIn40pPmCY7SluVUQ2ukgrQCuD418P0fjs5DqY";
 
 let client: SupabaseClient | null = null;
 
