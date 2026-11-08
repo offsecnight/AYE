@@ -8,7 +8,7 @@ import { DropExperienceModal }  from "@/components/modals/DropExperienceModal";
 import { CampaignBoard }        from "@/components/sections/CampaignBoard";
 import { experiencesApi, ExperiencePublic } from "@/lib/api";
 import { useAuthStore }         from "@/lib/store";
-import { getSocket }            from "@/lib/socket";
+import { subscribeCollegeEvents } from "@/lib/realtime";
 import { cn } from "@/lib/utils";
 
 const STATUS_FILTERS   = ["ALL", "UNRESOLVED", "TRENDING", "FIX_PROPOSED", "RESOLVED"];
@@ -64,13 +64,13 @@ export function CampusWall() {
     fetchExperiences(false);
   }, [user, router, fetchExperiences, statusFilter, categoryFilter, sort]);
 
-  // Real-time AYE updates via socket — NO polling
+  // Real-time AYE updates via Supabase Realtime broadcast — NO polling
   useEffect(() => {
-    if (!user?.token) return;
-    const socket = getSocket(user.token);
+    if (!user?.token || !user.college_id) return;
+    let unsub: (() => void) | undefined;
 
     const onAyeUpdate = (data: { post_id: string; aye_count: number }) => {
-      console.log("[AYE Socket] aye:update received:", data);
+      console.log("[AYE Realtime] aye:update received:", data);
       // Update the count in-place without remounting the card
       setExperiences((prev) =>
         prev.map((exp) =>
@@ -81,9 +81,12 @@ export function CampusWall() {
       );
     };
 
-    socket.on("aye:update", onAyeUpdate);
-    return () => { socket.off("aye:update", onAyeUpdate); };
-  }, [user?.token]);
+    subscribeCollegeEvents(user.token, user.college_id, onAyeUpdate).then(
+      (unsubscribe) => { unsub = unsubscribe; }
+    );
+
+    return () => { unsub?.(); };
+  }, [user?.token, user?.college_id]);
 
   const handleAyeToggle = useCallback((postId: string, nowAyed: boolean) => {
     setAyedPosts((prev) => {

@@ -10,7 +10,11 @@ import {
 import { cn }           from "@/lib/utils";
 import { chatApi }      from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
-import { getSocket }    from "@/lib/socket";
+import {
+  subscribeRoomMessages,
+  trackRoomPresence,
+  disconnectRealtime
+} from "@/lib/realtime";
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -118,7 +122,9 @@ export function AyeLounge() {
 
   const bottomRef   = useRef<HTMLDivElement>(null);
   const inputRef    = useRef<HTMLInputElement>(null);
-  const socketRef   = useRef<ReturnType<typeof getSocket> | null>(null);
+  // Realtime subscriptions — one per room, cleaned up on room change
+  const msgSubRef   = useRef<(() => void) | null>(null);
+  const presSubRef  = useRef<(() => void) | null>(null);
 
   // Redirect if not logged in
   useEffect(() => {
@@ -162,29 +168,28 @@ export function AyeLounge() {
       .finally(() => setLoadMsgs(false));
   }, [activeRoom?.room_id, user?.token]);
 
-  // Socket.io — connect once, switch rooms as needed
+  // ── Realtime: subscribe to new messages in the active room ──────
   useEffect(() => {
-    if (!user?.token) return;
+    if (!user?.token || !activeRoom) return;
 
-    const socket = getSocket(user.token);
-    socketRef.current = socket;
+    // Clean up old subscription when room changes
+    msgSubRef.current?.();
+    msgSubRef.current = null;
 
-    // Connection state
-    const onConnect    = () => { setConnected(true);  setConnStatus("live"); };
-    const onDisconnect = () => { setConnected(false); setConnStatus("reconnecting"); };
-    const onReconnectAttempt = () => setConnStatus("reconnecting");
-    socket.on("connect",           onConnect);
-    socket.on("disconnect",        onDisconnect);
-    socket.on("reconnect_attempt", onReconnectAttempt);
-    // Set immediately from current state — no flash if already connected
-    if (socket.connected) { setConnected(true); setConnStatus("live"); }
+    const rowToMsg = (row: Record<string, unknown>): ChatMessage => ({
+      msg_id:        row.msg_id as string,
+      room_id:       row.room_id as string,
+      sender_handle: row.send_as_ghost ? "Verified Campus Ghost" : (row.sender_handle as string),
+      content:       row.content as string,
+      send_as_ghost: row.send_as_ghost as boolean,
+      media_url:     (row.media_url as string | null) ?? null,
+      created_at:    row.created_at as string,
+    });
 
-    // Incoming messages — replace matching optimistic message or append
-    const onMessage = (msg: ChatMessage) => {
+    subscribeRoomMessages(user.token, activeRoom.room_id, (row) => {
+      const msg = rowToMsg(row);
       setMessages((prev) => {
-        // Already have the real message
         if (prev.some((m) => m.msg_id === msg.msg_id)) return prev;
-        // Replace the oldest optimistic message with matching content+sender
         const optimisticIdx = prev.findIndex(
           (m) =>
             m.msg_id.startsWith("optimistic-") &&
@@ -199,33 +204,27 @@ export function AyeLounge() {
         }
         return [...prev, msg];
       });
-    };
-    socket.on("message:new", onMessage);
+    }).then((unsub) => { msgSubRef.current = unsub; });
+  }, [user?.token, activeRoom?.room_id]);
 
-    // Online users count
-    const onOnline = (data: { count: number }) => setOnlineCount(data.count);
-    socket.on("room:online", onOnline);
-
-    return () => {
-      socket.off("connect",           onConnect);
-      socket.off("disconnect",        onDisconnect);
-      socket.off("reconnect_attempt", onReconnectAttempt);
-      socket.off("message:new",  onMessage);
-      socket.off("room:online",  onOnline);
-    };
-  }, [user?.token]);
-
-  // Join / leave rooms via socket
+  // ── Realtime: track presence (online count) in the active room ──
   useEffect(() => {
-    if (!socketRef.current || !activeRoom) return;
-    const socket = socketRef.current;
+    if (!user?.token || !activeRoom) return;
 
-    socket.emit("room:join", activeRoom.room_id);
+    presSubRef.current?.();
+    presSubRef.current = null;
 
-    return () => {
-      socket.emit("room:leave", activeRoom.room_id);
-    };
-  }, [activeRoom?.room_id]);
+    trackRoomPresence(
+      user.token,
+      activeRoom.room_id,
+      user.user_id!,
+      (count) => setOnlineCount(count),
+      (live) => {
+        setConnected(live);
+        setConnStatus(live ? "live" : "reconnecting");
+      }
+    ).then((unsub) => { presSubRef.current = unsub; });
+  }, [user?.token, activeRoom?.room_id, user?.user_id]);
 
   // Auto-scroll to latest message
   useEffect(() => {
@@ -234,10 +233,10 @@ export function AyeLounge() {
 
   // Send message
   const sendMessage = useCallback(
-    (e?: React.FormEvent) => {
+    async (e?: React.FormEvent) => {
       e?.preventDefault();
       const text = input.trim();
-      if (!text || !activeRoom || !socketRef.current) return;
+      if (!text || !activeRoom || !user?.token) return;
 
       // Optimistic update — show immediately before server confirms
       const optimisticMsg: ChatMessage = {
@@ -251,16 +250,22 @@ export function AyeLounge() {
       };
       setMessages((prev) => [...prev, optimisticMsg]);
 
-      socketRef.current.emit("message:send", {
-        room_id:       activeRoom.room_id,
-        content:       text,
-        send_as_ghost: asGhost,
-      });
+      try {
+        await chatApi.sendMessage(
+          activeRoom.room_id,
+          { content: text, send_as_ghost: asGhost, media_url: null },
+          user.token
+        );
+      } catch (err) {
+        // Remove optimistic message on failure
+        setMessages((prev) => prev.filter((m) => m.msg_id !== optimisticMsg.msg_id));
+        console.error("[lounge] send failed:", err);
+      }
 
       setInput("");
       inputRef.current?.focus();
     },
-    [input, activeRoom, asGhost, user?.ghost_handle]
+    [input, activeRoom, asGhost, user?.token, user?.ghost_handle]
   );
 
   // Send on Enter (Shift+Enter = newline not needed since single-line)

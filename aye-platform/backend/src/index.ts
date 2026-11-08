@@ -15,13 +15,9 @@ import publicRouter      from "./routes/public";
 import devAdminRouter    from "./routes/devAdmin";
 import uploadRouter      from "./routes/upload";
 import { adminCampaignRouter, studentCampaignRouter } from "./routes/campaigns";
-import { initSocket }    from "./socket";
 
 const app  = express();
 const server = http.createServer(app);
-
-// ── Socket.io ────────────────────────────────────────────────
-initSocket(server);
 
 // ── Security middleware ──────────────────────────────────────
 app.use(helmet({

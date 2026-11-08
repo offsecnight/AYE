@@ -5,7 +5,7 @@ import { asyncHandler } from "../utils/asyncHandler";
  * POST /api/v1/upload
  *   - Requires auth (any active student).
  *   - Accepts multipart/form-data with field name "files" (up to 10 files, 50 MB each).
- *   - Encrypts each file with AES-256-GCM and stores it on disk.
+ *   - Encrypts each file with AES-256-GCM and stores it in Catalyst Stratus (or local FS in dev).
  *   - Returns an array of { storedName, originalName, mimeType, size } objects
  *     that the caller should persist in the encrypted_files JSON column.
  *
@@ -74,6 +74,8 @@ router.post(
       return;
     }
 
+    console.log(`[Upload] Received ${files.length} file(s) from user ${req.user?.user_id}`);
+
     const results: {
       storedName:   string;
       originalName: string;
@@ -82,13 +84,25 @@ router.post(
     }[] = [];
 
     for (const file of files) {
-      const storedName = await saveEncryptedFile(file.buffer, UPLOAD_DIR, req);
-      results.push({
-        storedName,
-        originalName: file.originalname,
-        mimeType:     file.mimetype,
-        size:         file.size,
-      });
+      try {
+        console.log(`[Upload] Processing: ${file.originalname} (${file.mimetype}, ${file.size} bytes)`);
+        const storedName = await saveEncryptedFile(file.buffer, UPLOAD_DIR, req);
+        results.push({
+          storedName,
+          originalName: file.originalname,
+          mimeType:     file.mimetype,
+          size:         file.size,
+        });
+        console.log(`[Upload] Success: ${file.originalname} → ${storedName}`);
+      } catch (err) {
+        console.error(`[Upload] Failed: ${file.originalname}`, err);
+        res.status(500).json({ 
+          message: "File upload failed", 
+          detail: err instanceof Error ? err.message : "Unknown error",
+          file: file.originalname 
+        });
+        return;
+      }
     }
 
     res.status(201).json({ files: results });
@@ -134,13 +148,11 @@ router.get(
       res.setHeader("Content-Length", decrypted.length.toString());
       res.setHeader("Cache-Control", "private, no-store");
       res.send(decrypted);
-    } catch {
+    } catch (err) {
+      console.error(`[Download] Failed for ${storedName}:`, err);
       res.status(404).json({ message: "File not found or decryption failed" });
     }
   }
 );
 
 export default router;
-
-
-

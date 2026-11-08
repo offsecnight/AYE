@@ -1,19 +1,12 @@
-// All API calls go through Next.js's own /api/proxy route.
-// This means the browser always calls the same origin (whatever IP/domain
-// the frontend is served from — localhost, Tailscale IP, custom domain, etc.)
-// and Next.js forwards the request to the backend server-side.
-// No CORS issues. No hardcoded IPs in the browser.
+// All API calls go directly to the backend from the browser.
+// For production on Slate, we need direct calls since there's no Next.js server for proxy.
+// CORS is configured on the backend to allow the Slate domain.
 //
-// To point at a different backend, set BACKEND_URL in the server .env:
-//   BACKEND_URL=http://100.103.77.64:4000   (Tailscale)
-//   BACKEND_URL=https://api.yourdomain.com  (custom domain)
-// The frontend .env only needs NEXT_PUBLIC_API_URL if you want to bypass
-// the proxy entirely (e.g. same-machine dev without Tailscale).
-
+// Set BACKEND_URL in .env.local (server-side) or NEXT_PUBLIC_API_URL for browser direct calls.
 function getApiBase(): string {
-  // In the browser: always use the same-origin proxy
+  // In the browser: use NEXT_PUBLIC_API_URL if set, otherwise fallback to same-origin proxy (for local dev)
   if (typeof window !== "undefined") {
-    return "/api/proxy";
+    return process.env.NEXT_PUBLIC_API_URL ?? "/api/proxy";
   }
   // Server-side (SSR / RSC): call backend directly
   return (process.env.BACKEND_URL ?? "http://localhost:4000") + "/api/v1";
@@ -78,17 +71,59 @@ export const experiencesApi = {
     request(`/experiences/${id}/flag-junk`, { method: "POST", token }),
   crowdProof: (id: string, body: object, token: string) =>
     request(`/experiences/${id}/crowd-proof`, { method: "POST", body: JSON.stringify(body), token }),
+  // Direct multipart upload for crowd proof (files + comment in one request)
+  crowdProofUpload: (id: string, files: File[], commentText: string | undefined, token: string) => {
+    const formData = new FormData();
+    files.forEach((f) => formData.append("files", f));
+    if (commentText) formData.append("comment_text", commentText);
+    return requestMultipart(`/experiences/${id}/crowd-proof`, formData, token);
+  },
   proposeFix: (id: string, body: object, token: string) =>
     request(`/experiences/${id}/propose-fix`, { method: "POST", body: JSON.stringify(body), token }),
   voteFix: (id: string, vote: "YES" | "NO", token: string) =>
     request(`/experiences/${id}/vote-fix`, { method: "POST", body: JSON.stringify({ vote }), token }),
 };
 
+// Multipart request helper (no JSON Content-Type header)
+async function requestMultipart<T>(
+  path: string,
+  formData: FormData,
+  token?: string
+): Promise<T> {
+  const base = getApiBase();
+  const res = await fetch(`${base}${path}`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: res.statusText }));
+    throw new Error(err.message ?? "API error");
+  }
+  return res.json() as T;
+}
+
 // ── Chat ─────────────────────────────────────────────────────
 export const chatApi = {
   rooms: (token: string) => request("/chat/rooms", { token }),
   messages: (roomId: string, token: string) =>
     request(`/chat/rooms/${roomId}/messages`, { token }),
+  sendMessage: (
+    roomId: string,
+    body: { content: string; send_as_ghost: boolean; media_url?: string | null },
+    token: string
+  ) =>
+    request(`/chat/rooms/${roomId}/messages`, {
+      method: "POST",
+      body: JSON.stringify(body),
+      token,
+    }),
+  // Returns { url, key, token } for Supabase Realtime subscriptions.
+  realtimeToken: (token: string) =>
+    request("/chat/realtime-token", { token }),
 };
 
 // ── Types ─────────────────────────────────────────────────────

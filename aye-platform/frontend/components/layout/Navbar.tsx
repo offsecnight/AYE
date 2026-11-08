@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Ghost, LayoutGrid, MessageSquare, LogOut, User, Shield, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
-import { disconnectSocket } from "@/lib/socket";
+import { disconnectRealtime } from "@/lib/realtime";
 
 const navLinks = [
   { href: "/",               label: "SCOREBOARD", icon: LayoutGrid },
@@ -20,7 +20,7 @@ export function Navbar() {
   const { user, clearAuth } = useAuthStore();
 
   function logout() {
-    disconnectSocket();
+    disconnectRealtime();
     clearAuth();
     router.push("/auth");
   }
@@ -110,7 +110,7 @@ export function MobileTabBar() {
   const { user, clearAuth } = useAuthStore();
 
   function logout() {
-    disconnectSocket();
+    disconnectRealtime();
     clearAuth();
     router.push("/auth");
   }

@@ -188,16 +188,7 @@ Configure `swagger-jsdoc` and `swagger-ui-express` at `/api-docs`. Include Beare
 ### Developer Super-Admin Routes (`role == DEV_SUPER_ADMIN`)
 - `POST /api/v1/dev-admin/colleges` — Add new college + GPS coordinates.
 - `POST /api/v1/dev-admin/ban-user` — 1-click hardware ban user + penalize inviter.
-- `POST /api/v1/dev-admin/seed-otp` — Generate master seed invite codes for a new college.
-
----
-
-## 6. FRONTEND UI & SCREEN ARCHITECTURE
-
-### Visual Theme & Design System
-- **Theme:** High-contrast Dark Mode default (`#0B0C10` background, `#14161D` cards, `#F3F4F6` text).
-- **Status Colors:** Unresolved/Urgent = Crimson Red (`#E11D48`), Trending/Poll Active = Amber (`#F59E0B`), Resolved = Emerald Green (`#10B981`).
-- **Responsive Shell:** 3-Column layout on Desktop (Left Nav + Channels `260px`, Center Feed `fluid max 780px`, Right Reality Scoreboard `320px`). Collapses to Bottom Tab Bar on Mobile.
+- `POST /api/v1/dev-admin/seed-otp` — Generate mCO
 
 ### Core Views to Build:
 1. **Landing & Public Scoreboard (`/`, `/c/[slug]`):** Search any college, view its live Grade (`A–F`), Resolved vs. Unresolved metrics, and longest-ignored problems.

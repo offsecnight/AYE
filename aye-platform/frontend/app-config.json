@@ -1,0 +1,11 @@
+{
+  "command": "node server.js",
+  "stack": "node20",
+  "memory": 512,
+  "build_path": "./",
+  "env_variables": {
+    "NODE_ENV": "production",
+    "NEXT_PUBLIC_API_URL": "https://aye-backend-50047496537.development.catalystappsail.in/api/v1"
+  },
+  "catalyst_auth": false
+}

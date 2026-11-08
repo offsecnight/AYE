@@ -1,5 +1,5 @@
 {
-  "slate": [
+  "appsail": [
     {
       "source": ".",
       "name": "aye-frontend"

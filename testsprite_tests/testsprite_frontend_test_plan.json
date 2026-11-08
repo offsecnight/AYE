@@ -1,0 +1,1253 @@
+[
+  {
+    "id": "TC001",
+    "title": "Browse colleges and complete GPS-based registration",
+    "description": "A prospective student can verify campus location and finish zero-PII registration with GPS proof.",
+    "category": "Zero-PII Authentication and College Verification",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the college list page"
+      },
+      {
+        "type": "action",
+        "description": "Select a college from the available list"
+      },
+      {
+        "type": "action",
+        "description": "Start GPS verification"
+      },
+      {
+        "type": "action",
+        "description": "Provide a campus-valid location proof"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the ghost handle field with a unique value"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with a valid password"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the course branch field with a valid value"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the study year field with a valid value"
+      },
+      {
+        "type": "action",
+        "description": "Submit the registration form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the user lands on the authenticated campus experience"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a zero-PII profile or recovery key confirmation is shown"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC002",
+    "title": "Create a structured campus issue with media",
+    "description": "A student can submit a complete campus wall report with required details and evidence.",
+    "category": "Campus Wall Experience Reporting",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the campus wall page"
+      },
+      {
+        "type": "action",
+        "description": "Open the issue creation flow"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the title field with a unique issue title"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the problem description field with a clear issue description"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the exact location field with a campus location"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the impact scope field with a valid scope"
+      },
+      {
+        "type": "action",
+        "description": "Select a problem category"
+      },
+      {
+        "type": "action",
+        "description": "Select a severity level"
+      },
+      {
+        "type": "action",
+        "description": "Attach a valid media file"
+      },
+      {
+        "type": "action",
+        "description": "Choose to hide the ghost handle if available"
+      },
+      {
+        "type": "action",
+        "description": "Submit the issue report"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the new issue appears in the campus wall feed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the issue includes attached media evidence"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC003",
+    "title": "Add a college in the admin console",
+    "description": "The DEV_SUPER_ADMIN can create a new college from the admin console and see it added to the managed colleges list.",
+    "category": "Developer Super-Admin Console",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /dev-admin"
+      },
+      {
+        "type": "action",
+        "description": "Open the college management area"
+      },
+      {
+        "type": "action",
+        "description": "Start adding a new college"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the college name with a unique value"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the college slug with a unique value"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the city with a valid value"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the latitude with a valid value"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the longitude with a valid value"
+      },
+      {
+        "type": "action",
+        "description": "Submit the new college"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the new college appears in the managed colleges list"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the college management update is visible"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC004",
+    "title": "Generate OTP and sign up with classmate verification",
+    "description": "A student can generate a short-lived OTP and use it to register successfully.",
+    "category": "Zero-PII Authentication and College Verification",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the login page"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the authenticated student credentials"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign-in form"
+      },
+      {
+        "type": "action",
+        "description": "Open the OTP generation flow"
+      },
+      {
+        "type": "action",
+        "description": "Generate a verification code"
+      },
+      {
+        "type": "action",
+        "description": "Open the registration flow"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the college field with a valid value"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the ghost handle field with a unique value"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with a valid password"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the OTP field with the generated code"
+      },
+      {
+        "type": "action",
+        "description": "Submit the registration form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the user lands on the authenticated campus experience"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a zero-PII profile or recovery key confirmation is shown"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC005",
+    "title": "Ban a user fingerprint from the admin console",
+    "description": "The DEV_SUPER_ADMIN can ban a user fingerprint and see the ban reflected in the admin console.",
+    "category": "Developer Super-Admin Console",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /dev-admin"
+      },
+      {
+        "type": "action",
+        "description": "Open the user ban area"
+      },
+      {
+        "type": "action",
+        "description": "Start a new ban"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the user identifier with a unique value"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the ban reason with a valid value"
+      },
+      {
+        "type": "action",
+        "description": "Submit the ban"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the banned user appears in the admin console"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the ban status is visible"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC006",
+    "title": "View the developer admin dashboard",
+    "description": "The DEV_SUPER_ADMIN can open the private console and see the admin dashboard metrics.",
+    "category": "Developer Super-Admin Console",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /dev-admin"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the admin dashboard metrics are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the private admin console is accessible"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC007",
+    "title": "View current zero-PII profile after sign-in",
+    "description": "A verified student can log in and see their current anonymous profile details.",
+    "category": "Zero-PII Authentication and College Verification",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the login page"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the ghost handle field with a valid account handle"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with a valid password"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the hardware fingerprint field with a valid fingerprint hash"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign-in form"
+      },
+      {
+        "type": "action",
+        "description": "Open the account profile view"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the current zero-PII profile is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the college-scoped identity details are visible"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC008",
+    "title": "Escalate an issue to trending after enough support",
+    "description": "A student repeatedly AYE votes on an issue until it becomes trending and a linked chat room is created.",
+    "category": "Issue Escalation and Resolution Polls",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials for the verified student"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open an existing issue from the college wall or issue list"
+      },
+      {
+        "type": "action",
+        "description": "Repeat the AYE action until the issue reaches the trending threshold"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the issue status has updated to trending"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a linked chat room is available for the issue"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC009",
+    "title": "Block a non-admin from using the admin console",
+    "description": "A non-DEV_SUPER_ADMIN user is prevented from accessing restricted admin actions.",
+    "category": "Developer Super-Admin Console",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /dev-admin"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify an access denied state is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify admin controls are not available"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC010",
+    "title": "Upvote an issue with AYE",
+    "description": "A student can support an unresolved report and see its AYE total increase.",
+    "category": "AYE Voting, Junk Flagging, and Crowd Proofs",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the campus wall page"
+      },
+      {
+        "type": "action",
+        "description": "Open an unresolved issue from the feed"
+      },
+      {
+        "type": "action",
+        "description": "Submit an AYE vote"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the AYE total is updated"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the issue remains visible in the feed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC011",
+    "title": "Update an issue status in the admin console",
+    "description": "The DEV_SUPER_ADMIN can change an issue’s status and see the updated status in the issue list.",
+    "category": "Developer Super-Admin Console",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /dev-admin"
+      },
+      {
+        "type": "action",
+        "description": "Open the issue management area"
+      },
+      {
+        "type": "action",
+        "description": "Select an issue to update"
+      },
+      {
+        "type": "action",
+        "description": "Change the issue status to a new valid status"
+      },
+      {
+        "type": "action",
+        "description": "Save the status change"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the issue status is updated in the issue list"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the updated issue state is visible"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC012",
+    "title": "Resolve an issue after the final poll votes",
+    "description": "A student completes the final resolution poll votes and the issue ends in a resolved or unresolved state based on the outcome.",
+    "category": "Issue Escalation and Resolution Polls",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials for the verified student"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open an issue with an active resolution poll"
+      },
+      {
+        "type": "action",
+        "description": "Cast enough resolution poll votes to complete the poll"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the issue status has changed to resolved or unresolved"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the resolution poll is no longer active"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC013",
+    "title": "Propose a fix with proof for an issue",
+    "description": "A student submits a fix proposal with proof media and the issue moves into fix-proposed state with a resolution poll available.",
+    "category": "Issue Escalation and Resolution Polls",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials for the verified student"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open an existing issue from the college wall or issue list"
+      },
+      {
+        "type": "action",
+        "description": "Submit a fix proposal with proof media and a fix note"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the issue status has updated to fix proposed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a resolution poll is available"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC014",
+    "title": "Filter the campus wall to unresolved issues in a category",
+    "description": "A student can narrow the wall feed to the correct college issues using status and category filters.",
+    "category": "Campus Wall Experience Reporting",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the campus wall page"
+      },
+      {
+        "type": "action",
+        "description": "Open the feed filters"
+      },
+      {
+        "type": "action",
+        "description": "Select the unresolved status filter"
+      },
+      {
+        "type": "action",
+        "description": "Select a specific issue category filter"
+      },
+      {
+        "type": "action",
+        "description": "Apply the filters"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the feed shows only matching issues"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the filtered results remain college-scoped"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC015",
+    "title": "View a public college scoreboard",
+    "description": "A public visitor can open a college scoreboard and see the college’s resolution performance and Reality Grade.",
+    "category": "Public College Scoreboard and Reality Grade",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /c/{collegeSlug}"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the college scoreboard is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify resolution metrics and Reality Grade are visible"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC016",
+    "title": "Vote in an active resolution poll",
+    "description": "A student votes yes or no on an active resolution poll and the poll totals update on the issue.",
+    "category": "Issue Escalation and Resolution Polls",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials for the verified student"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open an issue with an active resolution poll"
+      },
+      {
+        "type": "action",
+        "description": "Cast a resolution poll vote"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the poll vote totals update"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the issue remains in a resolution-poll state until voting completes"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC017",
+    "title": "Create and view messages in a college chat room",
+    "description": "A student opens the college AYE Lounge, views prior messages, and sends a new message that appears in the room.",
+    "category": "Real-Time AYE Lounge Chat",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials for the verified student"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the college AYE Lounge"
+      },
+      {
+        "type": "action",
+        "description": "Open a chat room"
+      },
+      {
+        "type": "action",
+        "description": "Send a new message"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify prior message history is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the new message appears in the room"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC018",
+    "title": "Add crowd proof evidence to an issue",
+    "description": "A student can attach supporting evidence to an issue and see it appear on the report.",
+    "category": "AYE Voting, Junk Flagging, and Crowd Proofs",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the campus wall page"
+      },
+      {
+        "type": "action",
+        "description": "Open an issue from the feed"
+      },
+      {
+        "type": "action",
+        "description": "Open the crowd proof flow"
+      },
+      {
+        "type": "action",
+        "description": "Provide valid proof media"
+      },
+      {
+        "type": "action",
+        "description": "Submit the crowd proof"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the new crowd proof is visible on the issue"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the issue reflects the added evidence"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC019",
+    "title": "Refresh a scoreboard after a resolution update",
+    "description": "A public visitor can refresh a college scoreboard and see updated public performance data after a resolution changes.",
+    "category": "Public College Scoreboard and Reality Grade",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /c/{collegeSlug}"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the college scoreboard is displayed"
+      },
+      {
+        "type": "action",
+        "description": "Refresh the page"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the scoreboard remains visible after refresh"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify updated resolution metrics and Reality Grade are visible"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC020",
+    "title": "Browse only the authenticated college chat rooms",
+    "description": "A logged-in student sees the set of chat rooms available for their own college and not rooms from outside the silo.",
+    "category": "Real-Time AYE Lounge Chat",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials for the verified student"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the college AYE Lounge"
+      },
+      {
+        "type": "action",
+        "description": "View the available chat rooms"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify chat rooms for the authenticated college are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify no outside-college chat rooms are shown"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC021",
+    "title": "Sort unresolved issues from oldest to newest",
+    "description": "A student can browse the wall feed using the oldest unresolved ordering.",
+    "category": "Campus Wall Experience Reporting",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the campus wall page"
+      },
+      {
+        "type": "action",
+        "description": "Open the sorting controls"
+      },
+      {
+        "type": "action",
+        "description": "Select the oldest unresolved sort order"
+      },
+      {
+        "type": "action",
+        "description": "Apply the sort order"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify unresolved issues are ordered by age"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the sorted feed is displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC022",
+    "title": "Show a public college scoreboard with updated reality grade",
+    "description": "A public visitor opens a college scoreboard and sees the current Reality Grade metrics after an issue resolution.",
+    "category": "Issue Escalation and Resolution Polls",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the public college scoreboard page"
+      },
+      {
+        "type": "action",
+        "description": "Open the scoreboard for a college with resolved issues"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify Reality Grade metrics are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the scoreboard shows updated resolution impact information"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC023",
+    "title": "See public college list data",
+    "description": "A public visitor can load the public college list and see colleges with their public resolution data.",
+    "category": "Public College Scoreboard and Reality Grade",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the public college list is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify public resolution data is visible"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC024",
+    "title": "Upload and reuse encrypted evidence media",
+    "description": "A student uploads an image or video file and then uses the stored media reference in an issue or crowd-proof submission.",
+    "category": "Encrypted File Uploads",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials for the verified student"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the upload flow"
+      },
+      {
+        "type": "action",
+        "description": "Upload a valid image or video file"
+      },
+      {
+        "type": "action",
+        "description": "Use the returned stored media reference in an issue or crowd-proof submission"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the upload succeeds"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the media is linked in the submitted record"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC025",
+    "title": "Block issue creation with missing required details",
+    "description": "The wall form prevents submission when required structured fields are omitted.",
+    "category": "Campus Wall Experience Reporting",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the campus wall page"
+      },
+      {
+        "type": "action",
+        "description": "Open the issue creation flow"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the title field with a unique issue title"
+      },
+      {
+        "type": "action",
+        "description": "Submit the issue report without completing the remaining required fields"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify field validation errors are shown"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the issue is not created"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC026",
+    "title": "Reject invalid or expired OTP registration",
+    "description": "Registration fails when a student submits an invalid or expired verification code.",
+    "category": "Zero-PII Authentication and College Verification",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the registration page"
+      },
+      {
+        "type": "action",
+        "description": "Select a college from the available list"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the ghost handle field with a unique value"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with a valid password"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the OTP field with an invalid or expired code"
+      },
+      {
+        "type": "action",
+        "description": "Submit the registration form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a validation error is shown"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the account is not created"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC027",
+    "title": "Prevent duplicate junk flags on the same issue",
+    "description": "A user can flag a joke post once, but the same user cannot flag it again.",
+    "category": "AYE Voting, Junk Flagging, and Crowd Proofs",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the campus wall page"
+      },
+      {
+        "type": "action",
+        "description": "Open a joke or non-serious issue from the feed"
+      },
+      {
+        "type": "action",
+        "description": "Submit a junk flag"
+      },
+      {
+        "type": "action",
+        "description": "Submit the same junk flag again"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the first junk flag is recorded"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a duplicate-action error is shown"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC028",
+    "title": "Download an authorized encrypted file",
+    "description": "A student opens an authorized stored file reference and retrieves the encrypted asset successfully.",
+    "category": "Encrypted File Uploads",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials for the verified student"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open a file reference the user is authorized to access"
+      },
+      {
+        "type": "action",
+        "description": "Request the stored file"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the file content is available"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the download view or file preview is shown"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC029",
+    "title": "Require proof media before submitting crowd proof",
+    "description": "The app blocks crowd proof submission when no supporting media is provided.",
+    "category": "AYE Voting, Junk Flagging, and Crowd Proofs",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the campus wall page"
+      },
+      {
+        "type": "action",
+        "description": "Open an issue from the feed"
+      },
+      {
+        "type": "action",
+        "description": "Open the crowd proof flow"
+      },
+      {
+        "type": "action",
+        "description": "Leave the proof media field empty"
+      },
+      {
+        "type": "action",
+        "description": "Submit the crowd proof"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a validation error is shown"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the crowd proof is not added"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC030",
+    "title": "Reject a fix proposal without proof media",
+    "description": "A student tries to propose a fix without required proof media and sees validation prevent submission.",
+    "category": "Issue Escalation and Resolution Polls",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials for the verified student"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open an existing issue"
+      },
+      {
+        "type": "action",
+        "description": "Submit a fix proposal without proof media"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a validation error is shown"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the fix proposal is not created"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC031",
+    "title": "Handle an unknown college scoreboard",
+    "description": "A public visitor sees a not found state when opening an unknown college scoreboard.",
+    "category": "Public College Scoreboard and Reality Grade",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /c/{unknownCollegeSlug}"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a not found state is displayed"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC032",
+    "title": "Recover account with an invalid secret key",
+    "description": "A student cannot reset access when the recovery key does not match their account.",
+    "category": "Zero-PII Authentication and College Verification",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the account recovery page"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the ghost handle field with a valid account handle"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the secret recovery key field with an invalid value"
+      },
+      {
+        "type": "action",
+        "description": "Submit the recovery form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a recovery failure is shown"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify sign-in with the old password remains unavailable"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC033",
+    "title": "Block voting on an issue without an active poll",
+    "description": "A student attempts to vote on an issue before a resolution poll exists and the action is blocked.",
+    "category": "Issue Escalation and Resolution Polls",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials for the verified student"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open an issue without an active resolution poll"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to cast a resolution poll vote"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a poll-unavailable error is shown"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify no poll vote is recorded"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC034",
+    "title": "Show that an issue is unavailable when opened directly",
+    "description": "A user cannot view a report that does not exist or is not reachable through the feed.",
+    "category": "Campus Wall Experience Reporting",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the issue detail page for a nonexistent report"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a not-found state is shown"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify no issue details are displayed"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC035",
+    "title": "Reject unsupported uploads",
+    "description": "A student tries to upload an unsupported or oversized file and the interface prevents the upload from succeeding.",
+    "category": "Encrypted File Uploads",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials for the verified student"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the upload flow"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to upload an unsupported or oversized file"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify an upload validation error is shown"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify no file is stored for reuse"
+      }
+    ],
+    "priority": "Low"
+  }
+]

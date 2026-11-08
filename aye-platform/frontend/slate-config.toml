@@ -1,0 +1,17 @@
+# Catalyst Slate Configuration for Next.js
+[build]
+  command = "npm run build"
+  output_dir = ".next"
+
+[deploy]
+  # For Next.js static export or SSR
+  # static export: output_dir = "out"
+  # SSR: output_dir = ".next" (requires AppSail for full SSR)
+
+[headers]
+  # Cache static assets
+  "/_next/static/*" = "public, max-age=31536000, immutable"
+  "/public/*" = "public, max-age=86400"
+
+[rewrites]
+  # API proxy rewrites handled by Next.js config

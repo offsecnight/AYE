@@ -2,13 +2,15 @@ import express from "express";
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
+import multer from "multer";
 import { requireAuth } from "../middleware/auth";
 import { requireActive } from "../middleware/auth";
 import { collegeSiloGuard } from "../middleware/collegeSilo";
 import { runAntiTrollCheck } from "../services/antiTroll";
 import { checkTrendingEscalation } from "../services/trending";
 import { recalculateCollegeGrade } from "../services/grading";
-import { getIo } from "../socket/io-instance";
+import { publishAyeUpdate } from "../services/supabase";
+import { saveEncryptedFile } from "../services/fileEncryption";
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -27,6 +29,15 @@ function asyncHandler(
     fn(req, res, next).catch(next);
   };
 }
+
+// ── Multer config for crowd-proof uploads (max 5 files, 50MB each) ────
+const CROWD_PROOF_MAX_FILES = 5;
+const CROWD_PROOF_MAX_FILE_MB = parseInt(process.env.MAX_FILE_SIZE_MB ?? "50", 10);
+
+const crowdProofUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: CROWD_PROOF_MAX_FILE_MB * 1024 * 1024 },
+});
 
 const CreateSchema = z.object({
   title:          z.string().min(5).max(140),
@@ -239,18 +250,8 @@ router.post("/:id/aye", asyncHandler(async (req: Request, res: Response): Promis
     await checkTrendingEscalation(post_id);
   }
 
-  // Broadcast real-time AYE count to all users in this college
-  const io = getIo();
-  if (io) {
-    const room = `college:${college_id}`;
-    io.to(room).emit("aye:update", { post_id, aye_count: finalCount });
-    // Log room occupancy async — don't await before emit
-    io.in(room).fetchSockets().then((sockets) => {
-      console.log(`[AYE] aye:update → room=${room} post=${post_id} count=${finalCount} action=${action} sockets=${sockets.length}`);
-    });
-  } else {
-    console.warn("[AYE] io not available — socket not initialized");
-  }
+  // Broadcast real-time AYE count to all users in this college via Supabase Realtime
+  void publishAyeUpdate(college_id, { post_id, aye_count: finalCount }).catch(() => {});
 
   res.json({ action, aye_count: finalCount });
 }));
@@ -296,28 +297,103 @@ router.post("/:id/flag-junk", asyncHandler(async (req: Request, res: Response): 
  * @swagger
  * /experiences/{id}/crowd-proof:
  *   post:
- *     summary: Attach additional student evidence to a post
+ *     summary: Attach additional student evidence to a post (supports JSON or multipart)
  *     tags: [Experiences]
  *     security:
  *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               proof_media_url:
+ *                 type: string
+ *                 description: JSON string of uploaded files from /api/v1/upload
+ *               comment_text:
+ *                 type: string
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               files:
+ *                 type: array
+ *                 items: { type: string, format: binary }
+ *               comment_text:
+ *                 type: string
  */
-router.post("/:id/crowd-proof", asyncHandler(async (req: Request, res: Response): Promise<void> => {
-  const { proof_media_url, comment_text } = req.body as {
-    proof_media_url?: string;
-    comment_text?: string;
-  };
-
+router.post(
+  "/:id/crowd-proof",
+  crowdProofUpload.array("files", CROWD_PROOF_MAX_FILES),
+  asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const post = await prisma.experience.findUnique({ where: { post_id: req.params.id } });
   if (!post) { res.status(404).json({ message: "Not found" }); return; }
   if (post.college_id !== req.user!.college_id) { res.status(403).json({ message: "Access denied" }); return; }
+
+  // Support both JSON (proof_media_url as JSON string) and multipart (files array)
+  let proofMediaUrl: string | null = null;
+  let commentText: string | null = null;
+
+  const contentType = req.headers["content-type"] || "";
+  
+  if (contentType.includes("multipart/form-data")) {
+    // Handle multipart upload directly
+    const files = req.files as Express.Multer.File[] | undefined;
+    commentText = (req.body.comment_text as string) ?? null;
+
+    if (files && files.length > 0) {
+      if (files.length > 5) {
+        res.status(400).json({ message: "Maximum 5 files allowed for crowd proof" });
+        return;
+      }
+
+      // Upload files to Stratus
+      const uploaded: { storedName: string; originalName: string; mimeType: string; size: number }[] = [];
+      for (const file of files) {
+        // Validate file type (optional - accept all for crowd proof)
+        const allowedTypes = [
+          "image/", "video/", "audio/", 
+          "application/pdf", 
+          "application/zip", "application/x-zip-compressed",
+          "application/msword", 
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "application/vnd.ms-excel",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "text/"
+        ];
+        const isAllowed = allowedTypes.some(t => file.mimetype.startsWith(t)) || file.mimetype === "application/pdf";
+        if (!isAllowed) {
+          res.status(400).json({ message: `File type not allowed: ${file.mimetype}` });
+          return;
+        }
+
+        const storedName = await saveEncryptedFile(file.buffer, undefined, req);
+        uploaded.push({
+          storedName,
+          originalName: file.originalname,
+          mimeType: file.mimetype,
+          size: file.size,
+        });
+      }
+      proofMediaUrl = JSON.stringify(uploaded);
+    }
+  } else {
+    // Handle JSON body (existing approach)
+    const { proof_media_url, comment_text } = req.body as {
+      proof_media_url?: string;
+      comment_text?: string;
+    };
+    proofMediaUrl = proof_media_url ?? null;
+    commentText = comment_text ?? null;
+  }
 
   const interaction = await prisma.postInteraction.create({
     data: {
       post_id:         req.params.id,
       user_id:         req.user!.user_id,
       type:            "CROWD_PROOF",
-      proof_media_url: proof_media_url ?? null,
-      comment_text:    comment_text ?? null,
+      proof_media_url: proofMediaUrl,
+      comment_text:    commentText,
     },
   });
 

@@ -11,7 +11,13 @@ import { UnresolvedTimer } from "@/components/ui/Timer";
 import { cn } from "@/lib/utils";
 import { playAyeSound } from "@/lib/sounds";
 
-const API_BASE = "/api/proxy";
+// Use direct backend URL for uploads (works on Slate + AppSail)
+function getUploadBase(): string {
+  if (typeof window !== "undefined") {
+    return (process.env.NEXT_PUBLIC_API_URL ?? "/api/proxy") + "/upload";
+  }
+  return (process.env.BACKEND_URL ?? "http://localhost:4000") + "/api/v1/upload";
+}
 
 interface Props {
   experience:  ExperiencePublic;
@@ -26,7 +32,7 @@ async function uploadFiles(files: File[], token: string): Promise<{ storedName: 
   if (files.length === 0) return [];
   const fd = new FormData();
   files.forEach((f) => fd.append("files", f));
-  const res = await fetch(`${API_BASE}/upload`, {
+  const res = await fetch(getUploadBase(), {
     method: "POST",
     credentials: "include",
     headers: { Authorization: `Bearer ${token}` },
@@ -65,13 +71,8 @@ function ProofPanel({ postId, token, onDone }: { postId: string; token: string; 
     setUploading(true);
     setError(null);
     try {
-      let proof_media_url: string | undefined;
-      if (files.length > 0) {
-        const uploaded = await uploadFiles(files, token);
-        // pass as JSON string so backend stores storedName
-        proof_media_url = JSON.stringify(uploaded);
-      }
-      await experiencesApi.crowdProof(postId, { proof_media_url, comment_text: comment || undefined }, token);
+      // Use direct multipart upload (files + comment in one request)
+      await experiencesApi.crowdProofUpload(postId, files, comment || undefined, token);
       setDone(true);
       setTimeout(onDone, 1500);
     } catch (err: unknown) {

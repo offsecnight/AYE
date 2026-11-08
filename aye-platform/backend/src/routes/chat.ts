@@ -3,13 +3,49 @@ import { Router, Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import { requireAuth, requireActive } from "../middleware/auth";
 import { collegeSiloGuard } from "../middleware/collegeSilo";
+import {
+  supabaseConfigured,
+  insertChatMessage,
+  getChatMessages,
+  realtimeClientConfig,
+} from "../services/supabase";
+import { ChatMessageRow } from "../services/supabase";
 
 const router = Router();
 const prisma = new PrismaClient();
 
 router.use(requireAuth, requireActive, collegeSiloGuard);
 
-// ── GET /api/v1/chat/rooms ────────────────────────────────────
+/** Map a stored row into the wire shape the frontend expects. */
+function toMessageShape(row: ChatMessageRow) {
+  return {
+    msg_id:        row.msg_id,
+    room_id:       row.room_id,
+    content:       row.content,
+    send_as_ghost: row.send_as_ghost,
+    sender_handle: row.send_as_ghost
+      ? "Verified Campus Ghost"
+      : (row.sender_handle ?? ""),
+    media_url:     row.media_url,
+    created_at:    row.created_at,
+  };
+}
+
+// ── GET /api/v1/chat/realtime-token ────────────────────────────────
+/**
+ * Returns the Supabase URL + publishable key + a short-lived, college-scoped
+ * Realtime access token. The client uses these to subscribe to `postgres_changes`
+ * on chat_message (chat) and to Broadcast channels (college events / presence).
+ */
+router.get("/realtime-token", asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  if (!supabaseConfigured()) {
+    res.status(503).json({ message: "Realtime not configured" });
+    return;
+  }
+  res.json(realtimeClientConfig(req.user!));
+}));
+
+// ── GET /api/v1/chat/rooms ────────────────────────────────────────
 /**
  * @swagger
  * /chat/rooms:
@@ -27,12 +63,12 @@ router.get("/rooms", asyncHandler(async (req: Request, res: Response): Promise<v
   res.json({ rooms });
 }));
 
-// ── POST /api/v1/chat/rooms/:roomId/messages ─────────────────
+// ── POST /api/v1/chat/rooms/:roomId/messages ────────────────────────
 /**
  * @swagger
  * /chat/rooms/{roomId}/messages:
  *   post:
- *     summary: Post a new message to a room (called by frontend socket server)
+ *     summary: Post a new message to a room (persisted to Supabase, pushed live via Realtime)
  *     tags: [Chat]
  *     security:
  *       - bearerAuth: []
@@ -51,36 +87,27 @@ router.post("/rooms/:roomId/messages", asyncHandler(async (req: Request, res: Re
 
   if (!content?.trim()) { res.status(400).json({ message: "content required" }); return; }
 
-  const message = await prisma.chatMessage.create({
-    data: {
-      room_id:       req.params.roomId,
-      sender_id:     req.user!.user_id,
-      send_as_ghost: !!send_as_ghost,
-      content:       content.trim().slice(0, 2000),
-      media_url:     media_url ?? null,
-    },
-    include: { sender: { select: { ghost_handle: true } } },
+  const row = await insertChatMessage({
+    room_id:       req.params.roomId,
+    college_id:    room.college_id,
+    sender_id:     req.user!.user_id,
+    sender_handle: send_as_ghost ? null : req.user!.ghost_handle,
+    send_as_ghost: !!send_as_ghost,
+    content:       content.trim().slice(0, 2000),
+    media_url:     media_url ?? null,
   });
 
-  res.status(201).json({
-    message: {
-      msg_id:        message.msg_id,
-      room_id:       message.room_id,
-      content:       message.content,
-      send_as_ghost: message.send_as_ghost,
-      sender_handle: message.send_as_ghost ? "Verified Campus Ghost" : message.sender.ghost_handle,
-      media_url:     message.media_url,
-      created_at:    message.created_at,
-    },
-  });
+  if (!row) { res.status(500).json({ message: "Message store unavailable" }); return; }
+
+  res.status(201).json({ message: toMessageShape(row) });
 }));
 
-// ── GET /api/v1/chat/rooms/:roomId/messages ───────────────────
+// ── GET /api/v1/chat/rooms/:roomId/messages ──────────────────────────
 /**
  * @swagger
  * /chat/rooms/{roomId}/messages:
  *   get:
- *     summary: Get message history for a room
+ *     summary: Get message history for a room (reads from Supabase)
  *     tags: [Chat]
  *     security:
  *       - bearerAuth: []
@@ -89,34 +116,12 @@ router.get("/rooms/:roomId/messages", asyncHandler(async (req: Request, res: Res
   const room = await prisma.chatRoom.findUnique({ where: { room_id: req.params.roomId } });
   if (!room) { res.status(404).json({ message: "Room not found" }); return; }
 
-  // Silo check
   if (room.college_id !== req.user!.college_id && req.user!.role !== "DEV_SUPER_ADMIN") {
-    res.status(403).json({ message: "Access denied" });
-    return;
+    res.status(403).json({ message: "Access denied" }); return;
   }
 
-  const cursor = req.query.cursor as string | undefined;
-  const messages = await prisma.chatMessage.findMany({
-    where: { room_id: req.params.roomId },
-    orderBy: { created_at: "desc" },
-    take: 50,
-    ...(cursor ? { cursor: { msg_id: cursor }, skip: 1 } : {}),
-    include: {
-      sender: { select: { ghost_handle: true } },
-    },
-  });
-
-  // Mask ghost senders
-  const masked = messages.map((m) => ({
-    ...m,
-    sender_handle: m.send_as_ghost ? "Verified Campus Ghost" : m.sender.ghost_handle,
-    sender: undefined,
-  }));
-
-  res.json({ messages: masked.reverse() });
+  const rows = await getChatMessages(req.params.roomId);
+  res.json({ messages: rows.map(toMessageShape) });
 }));
 
 export default router;
-
-
-

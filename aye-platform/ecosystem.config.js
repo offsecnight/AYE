@@ -45,8 +45,7 @@ module.exports = {
     // ── FRONTEND ───────────────────────────────────────────────
     {
       name: "aye-frontend",
-      // Custom server: Next.js + Socket.io on same port 3000
-      // WebSocket works through any tunnel (serveo, ngrok, Tailscale)
+      // Custom server: Next.js (Supabase Realtime connects directly from browser)
       script: "server.js",
       cwd: "./frontend",
 

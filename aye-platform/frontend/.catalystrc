@@ -1,0 +1,36 @@
+{
+  "defaults": {
+    "project": 1,
+    "env": 2
+  },
+  "actives": {
+    "project": 1,
+    "env": 2
+  },
+  "projects": [
+    {
+      "idx": 1,
+      "id": "45574000000647047",
+      "name": "AYE-backend",
+      "domain": {
+        "id": "50047496537",
+        "name": "aye-backend-60074992846.development"
+      },
+      "timezone": "Asia/Kolkata",
+      "env": [
+        {
+          "idx": 1,
+          "id": "50047497690",
+          "name": "Production",
+          "type": 1
+        },
+        {
+          "idx": 2,
+          "id": "60074992846",
+          "name": "Development",
+          "type": 3
+        }
+      ]
+    }
+  ]
+}
