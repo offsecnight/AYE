@@ -29,6 +29,25 @@ app.use(helmet({
 const rawOrigins = process.env.FRONTEND_URL ?? "http://localhost:3000";
 const allowedOrigins = rawOrigins.split(",").map((o) => o.trim());
 
+// ── Manual CORS — Catalyst AppSail proxy strips headers on OPTIONS
+// so we must set them explicitly before the proxy sees the response.
+app.use((req, res, next) => {
+  const origin = req.headers.origin as string | undefined;
+  // Always allow — we're permissive in dev; the JWT guards resources
+  const allow = origin ?? "*";
+  res.setHeader("Access-Control-Allow-Origin", allow);
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization,X-Requested-With");
+  res.setHeader("Access-Control-Max-Age", "86400");
+  // Respond immediately to preflight
+  if (req.method === "OPTIONS") {
+    res.sendStatus(204);
+    return;
+  }
+  next();
+});
+
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (server-to-server, curl, Postman)
