@@ -6,37 +6,35 @@
 //    The backend writes via Prisma; Supabase Realtime pushes INSERTs live.
 //  - AYE count bumps: Broadcast on `college:<id>` channel.
 //  - Online count: Presence on per-room channel.
+//
+// The client is initialized directly from NEXT_PUBLIC_SUPABASE_* env vars —
+// no backend round-trip needed. These are publishable (anon) keys, safe to
+// expose in the browser.
 
 import { createClient, SupabaseClient, RealtimeChannel } from "@supabase/supabase-js";
-import { chatApi } from "./api";
 
-interface RealtimeCfg { url: string; key: string; }
+const SUPABASE_URL      = process.env.NEXT_PUBLIC_SUPABASE_URL      ?? "";
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
 let client: SupabaseClient | null = null;
-let clientForToken: string | null = null;
+
+function getClient(): SupabaseClient | null {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    console.error("[realtime] Supabase env vars not set (NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY)");
+    return null;
+  }
+  if (client) return client;
+  client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+  return client;
+}
 
 function disposeClient() {
   if (!client) return;
   try { client.removeAllChannels(); } catch { /* noop */ }
   try { client.realtime.disconnect(); } catch { /* noop */ }
   client = null;
-  clientForToken = null;
-}
-
-export async function ensureRealtimeClient(appToken: string): Promise<SupabaseClient | null> {
-  if (client && clientForToken === appToken) return client;
-  if (client) disposeClient();
-  try {
-    const cfg = (await chatApi.realtimeToken(appToken)) as RealtimeCfg;
-    client = createClient(cfg.url, cfg.key, {
-      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-    });
-    clientForToken = appToken;
-    return client;
-  } catch (e) {
-    console.error("[realtime] init failed:", e);
-    return null;
-  }
 }
 
 /**
@@ -45,11 +43,11 @@ export async function ensureRealtimeClient(appToken: string): Promise<SupabaseCl
  * delivers the INSERT payload to this subscriber immediately.
  */
 export async function subscribeRoomMessages(
-  appToken: string,
+  _appToken: string,   // kept for API compatibility, not used for auth
   roomId: string,
   onMessage: (row: Record<string, unknown>) => void
 ): Promise<() => void> {
-  const supabase = await ensureRealtimeClient(appToken);
+  const supabase = getClient();
   if (!supabase) return () => {};
 
   const channel: RealtimeChannel = supabase.channel(`room-msg:${roomId}`);
@@ -72,13 +70,13 @@ export async function subscribeRoomMessages(
  * Track presence for online count in a room.
  */
 export async function trackRoomPresence(
-  appToken: string,
+  _appToken: string,
   roomId: string,
   userId: string,
   onCount: (count: number) => void,
   onStatus?: (live: boolean) => void
 ): Promise<() => void> {
-  const supabase = await ensureRealtimeClient(appToken);
+  const supabase = getClient();
   if (!supabase) return () => {};
 
   const channel: RealtimeChannel = supabase.channel(`presence:${roomId}`);
@@ -105,12 +103,12 @@ export async function trackRoomPresence(
  * The backend publishes to `college:<id>` after each AYE toggle.
  */
 export async function subscribeCollegeEvents(
-  appToken: string,
+  _appToken: string,
   collegeId: string,
   onAye: (data: { post_id: string; aye_count: number }) => void,
   onStatus?: (live: boolean) => void
 ): Promise<() => void> {
-  const supabase = await ensureRealtimeClient(appToken);
+  const supabase = getClient();
   if (!supabase) return () => {};
 
   const channel: RealtimeChannel = supabase.channel(`college:${collegeId}`);
