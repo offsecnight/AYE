@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "stitch": {
+      "url": "https://stitch.googleapis.com/mcp",
+      "headers": {
+        "X-Goog-Api-Key": "YOUR_STITCH_API_KEY_HERE"
+      }
+    },
+    "TestSprite": {
+      "command": "testsprite-mcp-plugin",
+      "env": {
+        "API_KEY": "YOUR_TESTSPRITE_API_KEY_HERE"
+      }
+    }
+  },
+  "powers": {
+    "mcpServers": {}
+  }
+}
