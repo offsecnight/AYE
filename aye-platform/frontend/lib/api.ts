@@ -1,15 +1,20 @@
 // All API calls go directly to the backend from the browser.
-// For production on Slate, we need direct calls since there's no Next.js server for proxy.
-// CORS is configured on the backend to allow the Slate domain.
-//
-// Set BACKEND_URL in .env.local (server-side) or NEXT_PUBLIC_API_URL for browser direct calls.
+// For production on Catalyst AppSail, NEXT_PUBLIC_* env vars are injected at
+// runtime (after build), so they are empty strings in the compiled bundle.
+// We hardcode the production backend URL as a fallback to ensure direct calls
+// always work. For local dev the proxy fallback (/api/proxy) is still used.
+
+const PROD_API_BASE = "https://aye-backend-50047496537.development.catalystappsail.in/api/v1";
+
 function getApiBase(): string {
-  // In the browser: use NEXT_PUBLIC_API_URL if set, otherwise fallback to same-origin proxy (for local dev)
+  // In the browser: use NEXT_PUBLIC_API_URL if set (local dev with .env.local),
+  // otherwise use the hardcoded production backend URL.
+  // Never fall back to /api/proxy in production — AppSail proxy can't reach the backend.
   if (typeof window !== "undefined") {
-    return process.env.NEXT_PUBLIC_API_URL ?? "/api/proxy";
+    return process.env.NEXT_PUBLIC_API_URL ?? PROD_API_BASE;
   }
-  // Server-side (SSR / RSC): call backend directly
-  return (process.env.BACKEND_URL ?? "http://localhost:4000") + "/api/v1";
+  // Server-side (SSR / RSC): BACKEND_URL is injected at runtime (works fine server-side)
+  return (process.env.BACKEND_URL ?? "https://aye-backend-50047496537.development.catalystappsail.in") + "/api/v1";
 }
 
 async function request<T>(
