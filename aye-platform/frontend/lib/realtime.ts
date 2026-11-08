@@ -1,20 +1,17 @@
 "use client";
 
-// Supabase Realtime client for AYE Lounge chat + live campus events.
-// Replaces the old Socket.io layer.
+// Supabase Realtime client for AYE live events.
 //
-//  - Chat messages: subscribed via `postgres_changes` on the chat_message
-//    table (filtered by room). The backend persists the row and Realtime pushes
-//    it live to everyone in the room.
-//  - Online count: Realtime Presence on a per-room channel.
-//  - AYE count bumps: Realtime Broadcast on the college channel.
+//  - Chat messages: postgres_changes on "ChatMessage" table filtered by room_id
+//    The backend writes via Prisma; Supabase Realtime pushes INSERTs live.
+//  - AYE count bumps: Broadcast on `college:<id>` channel.
+//  - Online count: Presence on per-room channel.
 
 import { createClient, SupabaseClient, RealtimeChannel } from "@supabase/supabase-js";
 import { chatApi } from "./api";
 
-interface RealtimeCfg { url: string; key: string; token: string; }
+interface RealtimeCfg { url: string; key: string; }
 
-// Single shared client per logged-in user. Recreated when the token changes.
 let client: SupabaseClient | null = null;
 let clientForToken: string | null = null;
 
@@ -26,21 +23,13 @@ function disposeClient() {
   clientForToken = null;
 }
 
-async function ensureClient(appToken: string): Promise<SupabaseClient | null> {
+export async function ensureRealtimeClient(appToken: string): Promise<SupabaseClient | null> {
   if (client && clientForToken === appToken) return client;
-
-  // Token changed (or client died) — tear down and rebuild.
   if (client) disposeClient();
-
   try {
     const cfg = (await chatApi.realtimeToken(appToken)) as RealtimeCfg;
     client = createClient(cfg.url, cfg.key, {
-      global: { headers: { Authorization: `Bearer ${cfg.token}` } },
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
-      },
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     });
     clientForToken = appToken;
     return client;
@@ -51,23 +40,28 @@ async function ensureClient(appToken: string): Promise<SupabaseClient | null> {
 }
 
 /**
- * Subscribe to new chat messages in a room. Returns an unsubscribe function.
+ * Subscribe to new chat messages in a room via postgres_changes.
+ * The backend writes to Prisma's ChatMessage table; Supabase Realtime
+ * delivers the INSERT payload to this subscriber immediately.
  */
 export async function subscribeRoomMessages(
   appToken: string,
   roomId: string,
   onMessage: (row: Record<string, unknown>) => void
 ): Promise<() => void> {
-  const supabase = await ensureClient(appToken);
+  const supabase = await ensureRealtimeClient(appToken);
   if (!supabase) return () => {};
 
   const channel: RealtimeChannel = supabase.channel(`room-msg:${roomId}`);
   channel.on(
-    "postgres_changes",
-    { event: "INSERT", schema: "public", table: "chat_message", filter: `room_id=eq.${roomId}` },
-    (payload) => onMessage(payload.new as Record<string, unknown>)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    "postgres_changes" as any,
+    { event: "INSERT", schema: "public", table: "ChatMessage", filter: `room_id=eq.${roomId}` },
+    (payload: { new: Record<string, unknown> }) => onMessage(payload.new)
   );
-  channel.subscribe();
+  channel.subscribe((status) => {
+    console.log(`[realtime] room-msg:${roomId} →`, status);
+  });
 
   return () => {
     try { supabase.removeChannel(channel); } catch { /* noop */ }
@@ -75,8 +69,7 @@ export async function subscribeRoomMessages(
 }
 
 /**
- * Track this client as present in a room and report the live online count.
- * Best for tasks like an error-fallback or when a fresh client is needed.
+ * Track presence for online count in a room.
  */
 export async function trackRoomPresence(
   appToken: string,
@@ -85,13 +78,12 @@ export async function trackRoomPresence(
   onCount: (count: number) => void,
   onStatus?: (live: boolean) => void
 ): Promise<() => void> {
-  const supabase = await ensureClient(appToken);
+  const supabase = await ensureRealtimeClient(appToken);
   if (!supabase) return () => {};
 
   const channel: RealtimeChannel = supabase.channel(`presence:${roomId}`);
   channel.on("presence", { event: "sync" }, () => {
-    const keys = Object.keys(channel.presenceState());
-    onCount(keys.length);
+    onCount(Object.keys(channel.presenceState()).length);
   });
   channel.subscribe(async (status) => {
     if (status === "SUBSCRIBED") {
@@ -109,23 +101,24 @@ export async function trackRoomPresence(
 }
 
 /**
- * Subscribe to live college-wide broadcast events (AYE count bumps).
- * Returns an unsubscribe function.
+ * Subscribe to live college-wide AYE count updates via Broadcast.
+ * The backend publishes to `college:<id>` after each AYE toggle.
  */
 export async function subscribeCollegeEvents(
   appToken: string,
   collegeId: string,
-  onAye: (payload: { post_id: string; aye_count: number }) => void,
+  onAye: (data: { post_id: string; aye_count: number }) => void,
   onStatus?: (live: boolean) => void
 ): Promise<() => void> {
-  const supabase = await ensureClient(appToken);
+  const supabase = await ensureRealtimeClient(appToken);
   if (!supabase) return () => {};
 
   const channel: RealtimeChannel = supabase.channel(`college:${collegeId}`);
-  channel.on("broadcast", { event: "aye:update" }, (payload) => {
-    onAye(payload as unknown as { post_id: string; aye_count: number });
+  channel.on("broadcast", { event: "aye:update" }, ({ payload }) => {
+    onAye(payload as { post_id: string; aye_count: number });
   });
   channel.subscribe((status) => {
+    console.log(`[realtime] college:${collegeId} →`, status);
     if (status === "SUBSCRIBED") onStatus?.(true);
     else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") onStatus?.(false);
   });
@@ -135,7 +128,6 @@ export async function subscribeCollegeEvents(
   };
 }
 
-/** Tear down the shared client (e.g. on logout). */
 export function disconnectRealtime() {
   disposeClient();
 }
