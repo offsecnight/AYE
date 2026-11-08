@@ -1,19 +1,14 @@
-// All API calls go directly to the backend from the browser.
-// For production on Catalyst AppSail, NEXT_PUBLIC_* env vars are injected at
-// runtime (after build), so they are empty strings in the compiled bundle.
-// We hardcode the production backend URL as a fallback to ensure direct calls
-// always work. For local dev the proxy fallback (/api/proxy) is still used.
-
-const PROD_API_BASE = "https://aye-backend-50047496537.development.catalystappsail.in/api/v1";
+// All API calls are routed through the Next.js server-side proxy (/api/proxy).
+// This avoids CORS entirely — the Next.js server calls the backend server-to-server.
+// On Catalyst AppSail, the ZGS load balancer intercepts OPTIONS and strips CORS headers,
+// making direct browser→backend calls impossible. The proxy sidesteps this completely.
 
 function getApiBase(): string {
-  // In the browser: use NEXT_PUBLIC_API_URL if set (local dev with .env.local),
-  // otherwise use the hardcoded production backend URL.
-  // Never fall back to /api/proxy in production — AppSail proxy can't reach the backend.
   if (typeof window !== "undefined") {
-    return process.env.NEXT_PUBLIC_API_URL ?? PROD_API_BASE;
+    // Browser: always use the same-origin proxy — no CORS issues
+    return "/api/proxy";
   }
-  // Server-side (SSR / RSC): BACKEND_URL is injected at runtime (works fine server-side)
+  // Server-side (SSR / RSC): call backend directly (server-to-server, no CORS)
   return (process.env.BACKEND_URL ?? "https://aye-backend-50047496537.development.catalystappsail.in") + "/api/v1";
 }
 
